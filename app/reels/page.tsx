@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { getLoveCounts } from "@/lib/queries";
 import { REELS_PAGE_SIZE, REEL_CATEGORIES, type ReelCategory } from "@/lib/constants";
 import { ReelsVault } from "@/components/reels/ReelsVault";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
@@ -29,6 +30,10 @@ export default async function ReelsPage({ searchParams }: Props) {
     }),
     prisma.reel.count({ where })
   ]);
+  const loves = await getLoveCounts(
+    "reel",
+    items.map((i) => i.id)
+  );
 
   return (
     <>
@@ -38,7 +43,7 @@ export default async function ReelsPage({ searchParams }: Props) {
           { name: "Reel Vault", path: "/reels" }
         ])}
       />
-      <ReelsVault key={`${category}-${page}`} initial={items} total={total} category={category} page={page} />
+      <ReelsVault key={`${category}-${page}`} initial={items} loves={loves} total={total} category={category} page={page} />
     </>
   );
 }

@@ -17,12 +17,9 @@ export function Preloader() {
   const setIntroDone = useUi((s) => s.setIntroDone);
 
   useEffect(() => {
-    if (!visible) setIntroDone();
-  }, [visible, setIntroDone]);
-
-  useEffect(() => {
+    // Returning visitors: CSS already hides the overlay, so just release the hero.
     if (document.documentElement.dataset.intro === "seen") {
-      setVisible(false);
+      setIntroDone();
       return;
     }
     sessionStorage.setItem(SEEN_KEY, "1");
@@ -30,10 +27,13 @@ export function Preloader() {
       window.setTimeout(() => setCount(2), 550),
       window.setTimeout(() => setCount(1), 1100),
       window.setTimeout(() => setCount(0), 1650),
-      window.setTimeout(() => setVisible(false), 2500)
+      window.setTimeout(() => {
+        setVisible(false);
+        setIntroDone();
+      }, 2500)
     ];
     return () => timers.forEach(clearTimeout);
-  }, []);
+  }, [setIntroDone]);
 
   return (
     <AnimatePresence>
@@ -43,7 +43,10 @@ export function Preloader() {
           className="zh-preloader fixed inset-0 z-[300] flex items-center justify-center overflow-hidden bg-zh-black"
           exit={{ clipPath: "inset(0 0 100% 0)" }}
           transition={{ duration: 0.9, ease: [0.76, 0, 0.24, 1] }}
-          onClick={() => setVisible(false)}
+          onClick={() => {
+            setVisible(false);
+            setIntroDone();
+          }}
         >
           <div className="pointer-events-none absolute inset-0 opacity-[0.07] [background:repeating-linear-gradient(0deg,#fff_0_1px,transparent_1px_4px)]" />
           <div className="absolute inset-x-0 top-1/2 h-px bg-white/10" />

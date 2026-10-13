@@ -25,7 +25,6 @@ export function InstagramFeedSection({ variant = "home" }: { variant?: "home" | 
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     (async () => {
       const res = await fetch(`/api/instagram?sort=${sort}`);
       const data = (await res.json()) as { items?: IgItem[] };
@@ -60,7 +59,11 @@ export function InstagramFeedSection({ variant = "home" }: { variant?: "home" | 
                 <button
                   key={s}
                   type="button"
-                  onClick={() => setSort(s)}
+                  onClick={() => {
+                    if (s === sort) return;
+                    setLoading(true);
+                    setSort(s);
+                  }}
                   className={cn(
                     "rounded-full px-4 py-1.5 text-[10px] uppercase tracking-[0.22em]",
                     sort === s ? "bg-zh-gold text-black" : "text-zinc-400"

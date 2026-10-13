@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getLoveCounts } from "@/lib/queries";
 import { REELS_PAGE_SIZE, REEL_CATEGORIES } from "@/lib/constants";
 
 export async function GET(req: Request) {
@@ -30,6 +31,10 @@ export async function GET(req: Request) {
     totalPages,
     hasMore: page < totalPages,
     category,
-    items
+    items,
+    loves: await getLoveCounts(
+      "reel",
+      items.map((i) => i.id)
+    )
   });
 }

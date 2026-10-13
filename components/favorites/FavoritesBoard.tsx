@@ -23,21 +23,29 @@ export function FavoritesBoard() {
   const [tab, setTab] = useState<Tab>("all");
   const [confirmClear, setConfirmClear] = useState(false);
 
-  const load = async () => {
-    setError(false);
-    try {
-      const res = await fetch("/api/favorites?expand=1", { cache: "no-store" });
-      if (!res.ok) throw new Error();
-      const data = (await res.json()) as { cards: FavoriteCard[] };
-      setCards(data.cards);
-    } catch {
-      setError(true);
-    }
-  };
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    void load();
-  }, []);
+    let cancelled = false;
+    fetch("/api/favorites?expand=1", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error();
+        const data = (await res.json()) as { cards: FavoriteCard[] };
+        if (!cancelled) setCards(data.cards);
+      })
+      .catch(() => {
+        if (!cancelled) setError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [attempt]);
+
+  const retry = () => {
+    setError(false);
+    setCards(null);
+    setAttempt((a) => a + 1);
+  };
 
   // Un-hearting anywhere removes the card live; the store is the source of truth once hydrated.
   const live = useMemo(
@@ -132,7 +140,7 @@ export function FavoritesBoard() {
         {error ? (
           <div className="mt-16 rounded-3xl border border-red-400/20 bg-red-500/5 p-10 text-center">
             <p className="text-sm text-red-200">We couldn&apos;t load your favorites. The projector might be warming up.</p>
-            <Button className="mt-5 rounded-full" variant="outline" onClick={() => void load()}>
+            <Button className="mt-5 rounded-full" variant="outline" onClick={retry}>
               <RefreshCw className="h-4 w-4" /> Try again
             </Button>
           </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +45,7 @@ export function AdminDesk() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch; load() only sets state after the network round-trip
     void load();
   }, []);
 
@@ -56,7 +58,7 @@ export function AdminDesk() {
           Sign in with a Clerk account whose email is in ADMIN_EMAILS, or set publicMetadata.role = &quot;admin&quot;.
         </p>
         <Button className="mt-6" asChild>
-          <a href="/sign-in">Sign in</a>
+          <Link href="/sign-in">Sign in</Link>
         </Button>
       </div>
     );

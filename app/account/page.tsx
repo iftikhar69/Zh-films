@@ -3,6 +3,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Heart } from "lucide-react";
+import { useFavoriteCount } from "@/stores/favorites-store";
+
+function FavoritesShortcut() {
+  const count = useFavoriteCount();
+  return (
+    <Link
+      href="/favorites"
+      className="mt-8 flex items-center justify-between rounded-2xl border border-rose-400/20 bg-rose-500/5 p-5 transition hover:border-rose-400/40"
+    >
+      <span className="flex items-center gap-3">
+        <Heart className="h-5 w-5 fill-rose-400 text-rose-400" />
+        <span>
+          <span className="block font-serif text-lg text-white">Your favorites</span>
+          <span className="block text-xs text-zinc-400">{count} saved reels, frames, crew and gear</span>
+        </span>
+      </span>
+      <span className="text-xs uppercase tracking-[0.25em] text-rose-300">Open →</span>
+    </Link>
+  );
+}
 
 type Payload = {
   ok: boolean;
@@ -42,6 +63,7 @@ export default function AccountPage() {
         <Button className="mt-6" asChild>
           <Link href="/sign-in">Sign in</Link>
         </Button>
+        <FavoritesShortcut />
       </div>
     );
   }
@@ -53,6 +75,8 @@ export default function AccountPage() {
       <p className="mt-2 text-sm text-zinc-400">
         Bookings, hires, and gear requests attached to this Clerk account. Production Office is admin-only.
       </p>
+
+      <FavoritesShortcut />
 
       <section className="mt-10 space-y-3">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Bookings</h2>

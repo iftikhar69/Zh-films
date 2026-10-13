@@ -1,143 +1,84 @@
-# ZH Films — Legendary Cinematic Universe (Lahore)
+# ZH Films — Cinematic studio site (Lahore)
 
-Immersive multi-page filmmaker website engineered for **ZH Films** with deep blacks (`#080706`), warm cinema gold (`#c8a96a`), film grain, projector rays, desi filmy soul, and premium motion direction.
+Full-stack, heavily animated website for **ZH Films**, the wedding, AKU-event and commercial film house led by
+**Zulfikar Hussain**. Visitors can watch reels, browse the gallery, heart their favorites, leave reviews, search
+everything with ⌘K, hire crew, rent or buy gear, and book a date — all backed by a real database and API.
 
----
+## Stack
 
-## Brand Story
-
-- **CEO & Lead Cinematographer:** Zulfikar Hussain
-- **Education:** Recently completed degree in Cinematic Films
-- **Experience:** **7+ years** in cinematic wedding films, AKU events, pre-events, commercial productions, drone cinematography, and high-profile Lahore projects
-- **Creative Force:** Passionate team of cinematographers, videographers, photographers, makeup & hair artists, and decoration/styling specialists
-
----
-
-## Stack (locked)
-
-- Next.js 16 App Router + TypeScript
-- Tailwind CSS 4 + tw-animate
-- Framer Motion 12
-- shadcn/ui primitives (Dialog, Button, Input)
+- Next.js 16 (App Router) + TypeScript + React 19
+- Tailwind CSS 4, shadcn/ui-style primitives (Dialog, Button, Input, Command, Sonner)
+- Framer Motion 12 + Lenis smooth scroll
 - Prisma + SQLite
-- Zustand
-- React Hook Form + Zod
-- Bun/Docker ready
+- Zustand, React Hook Form + Zod
+- Clerk (optional) for sign-in and the admin desk
 
----
-
-## App Router Scene Map
-
-- `/` — **Living Viewfinder Hero** (short, cinematic, minimal text)
-- `/reels` — **Reel Vault** with category filters + pagination + infinite scroll + load-more
-- `/gallery` — Hybrid photo/video gallery with filters + pagination + append loading
-- `/journal` — Film Notes with pagination and article pages
-- `/about` — Zulfikar Hussain + full creative story
-- `/book` — Multi-step cinematic booking flow
-- `/hire` — Rich talent casting board with filters, hover previews, and date-picker booking modal
-
----
-
-## Award-Winning Features Implemented
-
-### 1) Living Viewfinder Hero
-- Slow-motion cinematic video background
-- Interactive 3D clapperboard: **“Directed by Zulfikar Hussain — Take 1”**
-- Real-time HUD: REC blink, ISO shift, live timecode
-- Mouse-reactive 3D dust + light leaks + scanlines + grain
-- Two dominant cinematic CTAs only
-
-### 2) Cinema Mode (Global)
-- Global toggle with persistent mood
-- Theater curtains + stronger vignette + projector beams
-- Film burn route transitions
-- Optional projector hum + emotional piano swell
-
-### 3) Reel Vault + Gallery
-- Reel categories: `weddings`, `pre-events`, `aku`, `commercial`
-- Reels API supports category + paging
-- Hover mini-trailer overlays on reel cards
-- Gallery uses proper paging + category filters + load-more strip behavior
-- Added **Film Dust Gallery** interaction to reveal hidden projects
-
-### 4) Emotion Engine
-- Mood selector: Romantic, Dramatic, Grand, Intimate (mapped in UI)
-- Generates custom teaser vibe panel with cinematic preview mood
-
-### 5) Hire / Talent Upgrade (Major)
-- Role/experience/specialty filters
-- Premium talent cards:
-  - Cinematographer / Videographer
-  - Photographer
-  - Makeup & Hair Artist
-  - Decoration & Styling Team
-- Hover preview video snippets + film-strip presentation
-- “Book This Talent” modal with **date picker** + custom brief
-
-### 6) Booking + Director’s Cut Club
-- Multi-step booking flow with RHF + Zod validation
-- Premium Director’s Cut popup with validated email capture + instant discount
-
-### Performance Fixes (Scroll Lag)
-- Cinema Mode **defaults OFF** (curtains no longer crush scroll)
-- Film grain / light leaks are **static** (no continuous transforms)
-- Scanlines only render in Cinema Mode
-- Dust particles cut from 48 Framer Motion nodes → **14 CSS particles** with rAF-throttled pointer
-- Film-burn nav flash is a lightweight CSS overlay (no Framer springs)
-- Reel/Gallery cards are **image-only**; video loads only inside Theater Viewer
-- `prefers-reduced-motion` respected globally
-
-### Full-Screen Theater Viewer
-- `/reels` + `/gallery` open a true theater portal
-- Keyboard: `←` / `→` (or H/L), `Space` play/pause, `Esc` exit
-- Applause cue on open when sound is enabled
-
-### Cinematic SEO
-- Per-route Open Graph + Twitter cards via `lib/seo.tsx`
-- JSON-LD: MovieTheater org + Person (Zulfikar) + Breadcrumbs
-- Canonical URLs + OG artwork at `/og/default.svg`
-- Set `NEXT_PUBLIC_SITE_URL` for production absolute URLs
-
----
-
-## APIs
-
-- `GET /api/reels?page=&category=` → paginated reels
-- `GET /api/gallery?page=&category=` → paginated gallery
-- `GET /api/journal?page=` → paginated journal
-- `GET /api/instagram` → live or fallback set feed
-- `POST /api/newsletter` → Director’s Cut signup
-
-All listing APIs return:
-
-```ts
-{ page, pageSize, total, totalPages, hasMore, items }
-```
-
----
-
-## Local Run
+## Run locally
 
 ```bash
 cp .env.example .env
 npm install
 npx prisma db push
 npm run db:seed
-npm run dev
+npm run dev -- -p 4317
 ```
 
-Open `http://localhost:3000`.
+Open http://localhost:4317. Clerk keys are optional; without them everything works and favorites are tied to an
+anonymous browser cookie.
 
----
+## What's on the lot
+
+| Route        | What it does                                                                                  |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `/`          | Animated opening: film-leader intro, letterbox hero, pinned reel strip, process, rankings, reviews |
+| `/reels`     | Reel Vault — category filters, infinite scroll, theater player, hearts and view counts        |
+| `/gallery`   | Masonry stills and motion with theater viewer and hearts                                      |
+| `/favorites` | Your watchlist — filter by type, remove, or turn it into a booking brief                       |
+| `/hire`      | Film Family crew with animated role filter, hearts and hire requests                          |
+| `/rent` `/sell` | Gear bay for rentals and vault sales                                                       |
+| `/book`      | Multi-step booking (prefills references from favorites)                                       |
+| `/journal` `/about` `/instagram` `/account` `/admin` | Film notes, story, dailies, call sheet, production office |
+
+## Full-stack features
+
+- **Favorites** — `Favorite` table keyed by owner (`visitor:<cookie>` or `user:<clerkId>`). When a visitor signs
+  in, their anonymous favorites are moved to their account. Optimistic toggles with toasts, a live counter in the
+  nav, and a "Most loved" ranking on the homepage computed from everyone's hearts.
+- **Reviews** — visitors post star-rated reviews (Zod-validated) that appear immediately on the animated wall, with
+  a live average.
+- **Search** — ⌘K / `/` command palette searching reels, crew, gear and journal posts.
+- **View counts** — every theater play increments the reel's views.
+
+### API
+
+| Method | Route                       | Purpose                                     |
+| ------ | --------------------------- | ------------------------------------------- |
+| GET    | `/api/favorites?expand=1`   | Your favorite keys (and cards when expanded) |
+| POST   | `/api/favorites`            | Toggle `{ type: reel\|gallery\|crew\|gear, id }` |
+| DELETE | `/api/favorites`            | Clear your favorites                        |
+| GET    | `/api/favorites/top`        | Most-loved reels                            |
+| GET/POST | `/api/reviews`            | List / create reviews                       |
+| GET    | `/api/search?q=`            | Grouped search hits                         |
+| POST   | `/api/reels/:id/view`       | Increment reel views                        |
+| GET    | `/api/reels` `/api/gallery` `/api/journal` | Paginated listings (+ love counts) |
+| POST   | `/api/bookings` `/api/hire` `/api/rent` `/api/sell` `/api/newsletter` | Inquiries |
+
+## Motion system (`components/motion/`)
+
+Preloader countdown (once per session), Lenis smooth scroll, scroll progress bar, trailing cursor with contextual
+labels (`data-cursor="Play"`), split-text reveals, magnetic buttons, 3D tilt cards with glare, marquees, count-ups,
+scroll-linked timelines and page-wipe transitions. `prefers-reduced-motion` disables the intro, smooth scroll and
+cursor.
+
+## Scripts
+
+- `npm run dev` — dev server
+- `npm run build` / `npm start` — production
+- `npm run lint` — ESLint (Next core-web-vitals + TypeScript)
+- `npm run db:push` / `npm run db:seed` — schema + demo data
 
 ## Docker
 
 ```bash
 docker compose up --build
 ```
-
----
-
-Crafted with pure cinematic soul, desi filmy magic, 7+ years of real passion, and award-winning excellence.
-# Zh-films
-# Zh-films

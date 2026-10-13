@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 type Particle = { id: number; x: number; y: number; s: number; o: number };
 
@@ -8,15 +9,7 @@ type Particle = { id: number; x: number; y: number; s: number; o: number };
 export function DustParticles({ count = 16 }: { count?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(mq.matches);
-    const onMq = () => setReduced(mq.matches);
-    mq.addEventListener("change", onMq);
-    return () => mq.removeEventListener("change", onMq);
-  }, []);
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   useEffect(() => {
     if (reduced) return;

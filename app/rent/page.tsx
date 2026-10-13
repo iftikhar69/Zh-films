@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { GearBay } from "@/components/gear/GearBay";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Rent Gear",
   description: "Rent Sony cameras, gimbals, and production cars from ZH Films Lahore.",

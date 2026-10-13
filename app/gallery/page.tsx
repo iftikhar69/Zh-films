@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { getLoveCounts } from "@/lib/queries";
 import { GALLERY_CATEGORIES, GALLERY_PAGE_SIZE, type GalleryCategory } from "@/lib/constants";
 import { GalleryExperience } from "@/components/gallery/GalleryExperience";
 import { FilmDustGallery } from "@/components/gallery/FilmDustGallery";
@@ -30,6 +31,10 @@ export default async function GalleryPage({ searchParams }: Props) {
       take: GALLERY_PAGE_SIZE
     })
   ]);
+  const loves = await getLoveCounts(
+    "gallery",
+    items.map((i) => i.id)
+  );
 
   return (
     <>
@@ -42,7 +47,7 @@ export default async function GalleryPage({ searchParams }: Props) {
       <div className="pt-28 sm:pt-32">
         <FilmDustGallery />
       </div>
-      <GalleryExperience key={`${category}-${page}`} initial={items} total={total} category={category} page={page} />
+      <GalleryExperience key={`${category}-${page}`} initial={items} loves={loves} total={total} category={category} page={page} />
     </>
   );
 }

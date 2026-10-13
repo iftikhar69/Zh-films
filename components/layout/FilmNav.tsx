@@ -48,7 +48,11 @@ export function FilmNav() {
     setHidden(y > 240 && y > prev && !menuOpen);
   });
 
-  useEffect(() => setMenuOpen(false), [pathname]);
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
+    setMenuOpen(false);
+  }
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";

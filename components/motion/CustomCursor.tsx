@@ -2,13 +2,16 @@
 
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
  * Trailing viewfinder ring for mouse users. Any element with data-cursor="Label"
  * expands the ring and shows the label (e.g. "Play", "View").
  */
 export function CustomCursor() {
-  const [enabled, setEnabled] = useState(false);
+  const fine = useMediaQuery("(pointer: fine)");
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
+  const enabled = fine && !reduced;
   const [label, setLabel] = useState<string | null>(null);
   const [hoverLink, setHoverLink] = useState(false);
   const [down, setDown] = useState(false);
@@ -18,10 +21,7 @@ export function CustomCursor() {
   const sy = useSpring(y, { stiffness: 420, damping: 34, mass: 0.5 });
 
   useEffect(() => {
-    const fine = window.matchMedia("(pointer: fine)").matches;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!fine || reduced) return;
-    setEnabled(true);
+    if (!enabled) return;
 
     const move = (e: PointerEvent) => {
       x.set(e.clientX);
@@ -47,7 +47,7 @@ export function CustomCursor() {
       window.removeEventListener("pointerup", release);
       document.documentElement.removeEventListener("pointerleave", leave);
     };
-  }, [x, y]);
+  }, [enabled, x, y]);
 
   if (!enabled) return null;
 

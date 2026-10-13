@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { HireContent } from "@/components/hire/HireContent";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Hire Film Family",
   description:

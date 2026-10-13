@@ -49,8 +49,7 @@ export function CommandPalette() {
   const open = useUi((s) => s.searchOpen);
   const setOpen = useUi((s) => s.setSearchOpen);
   const [q, setQ] = useState("");
-  const [hits, setHits] = useState<SearchHit[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<{ q: string; hits: SearchHit[] }>({ q: "", hits: [] });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -69,22 +68,15 @@ export function CommandPalette() {
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) {
-      setHits([]);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (term.length < 2) return;
     const ctrl = new AbortController();
     const t = window.setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal });
         const data = (await res.json()) as { hits: SearchHit[] };
-        setHits(data.hits);
+        setResults({ q: term, hits: data.hits });
       } catch {
-        /* aborted or offline */
-      } finally {
-        if (!ctrl.signal.aborted) setLoading(false);
+        if (!ctrl.signal.aborted) setResults({ q: term, hits: [] });
       }
     }, 180);
     return () => {
@@ -100,6 +92,9 @@ export function CommandPalette() {
   };
 
   const term = q.trim().toLowerCase();
+  const searching = term.length >= 2;
+  const hits = searching && results.q.toLowerCase() === term ? results.hits : [];
+  const loading = searching && results.q.toLowerCase() !== term;
   const pages = PAGES.filter(
     (p) => !term || p.label.toLowerCase().includes(term) || p.keywords.includes(term)
   );

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getLoveCounts } from "@/lib/queries";
 import { GALLERY_PAGE_SIZE } from "@/lib/constants";
 
 const VALID_CATEGORIES = new Set(["weddings", "aku", "commercial", "pre-events"]);
@@ -32,6 +33,10 @@ export async function GET(req: Request) {
     totalPages,
     hasMore: page < totalPages,
     category,
-    items
+    items,
+    loves: await getLoveCounts(
+      "gallery",
+      items.map((i) => i.id)
+    )
   });
 }
