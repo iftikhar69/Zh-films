@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { BRAND } from "@/lib/constants";
 import { JsonLd, absoluteUrl, localBusinessJsonLd, personJsonLd } from "@/lib/seo";
+import { introScript } from "@/components/motion/Preloader";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -74,7 +75,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${playfair.variable} ${syne.variable}`}>
+    <html
+      lang="en"
+      className={`${dmSans.variable} ${playfair.variable} ${syne.variable}`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: introScript }} />
+      </head>
       <body className="min-h-[100svh] bg-zh-black font-sans text-zinc-100 antialiased">
         <JsonLd data={[localBusinessJsonLd(), personJsonLd()]} />
         <Providers>{children}</Providers>

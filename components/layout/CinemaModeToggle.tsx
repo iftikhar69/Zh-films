@@ -24,7 +24,9 @@ export function CinemaModeToggle() {
         size="icon"
         variant="ghost"
         aria-pressed={soundEnabled}
-        className="rounded-full border border-white/10"
+        aria-label={soundEnabled ? "Mute soundscape" : "Enable soundscape"}
+        title="Soundscape"
+        className="h-9 w-9 rounded-full border border-white/10"
         onClick={() => {
           toggleSound();
           if (!soundEnabled) filmWind();
@@ -37,7 +39,8 @@ export function CinemaModeToggle() {
         size="icon"
         variant="ghost"
         aria-pressed={cinemaMode}
-        className="rounded-full border border-white/10"
+        aria-label="Toggle cinema mode"
+        className="h-9 w-9 rounded-full border border-white/10"
         onClick={() => toggleCinema()}
         title="Cinema mode"
       >

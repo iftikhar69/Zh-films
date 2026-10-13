@@ -39,8 +39,21 @@ export function DirectorsCutClub() {
     if (typeof window === "undefined") return;
     const dismissed = window.sessionStorage.getItem(STORAGE_KEY);
     if (dismissed) return;
-    const t = window.setTimeout(() => setOpen(true), 5200);
-    return () => window.clearTimeout(t);
+    const show = () => {
+      window.removeEventListener("scroll", onScroll);
+      window.clearTimeout(t);
+      setOpen(true);
+    };
+    const onScroll = () => {
+      const depth = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight;
+      if (depth > 0.6 && window.scrollY > 1200) show();
+    };
+    const t = window.setTimeout(show, 25000);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, []);
 
   useEffect(() => {

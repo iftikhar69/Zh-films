@@ -41,6 +41,7 @@ export function BookExperience() {
     watch,
     formState: { errors },
     getValues,
+    setValue,
     reset
   } = useForm<BookingValues>({
     resolver: zodResolver(bookingSchema),
@@ -58,6 +59,11 @@ export function BookExperience() {
   });
 
   const eventDate = watch("eventDate");
+
+  useEffect(() => {
+    const refs = new URLSearchParams(window.location.search).get("references");
+    if (refs) setValue("references", refs.slice(0, 500));
+  }, [setValue]);
 
   useEffect(() => {
     if (!eventDate) {
