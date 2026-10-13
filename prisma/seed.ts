@@ -6,6 +6,8 @@ const videoSample =
   "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
 
 async function main() {
+  await prisma.favorite.deleteMany();
+  await prisma.review.deleteMany();
   await prisma.sellInquiry.deleteMany();
   await prisma.rentalInquiry.deleteMany();
   await prisma.hireRequest.deleteMany();
@@ -63,8 +65,56 @@ async function main() {
       videoUrl: videoSample,
       thumbnail: img(`zh-reel-${i}`),
       durationSec: 45 + (i % 5) * 12,
-      featured: i < 3
+      featured: i < 6,
+      views: 1200 - i * 37 + ((i * 53) % 210)
     }))
+  });
+
+  await prisma.review.createMany({
+    data: [
+      {
+        name: "Noor & Ali",
+        eventType: "Wedding",
+        rating: 5,
+        message:
+          "We watched our trailer eleven times the night it arrived. Zulfikar caught moments we didn't even know happened — my father's face at the rukhsati still makes us cry."
+      },
+      {
+        name: "Dr. Mahnoor S.",
+        eventType: "AKU Convocation",
+        rating: 5,
+        message:
+          "Calm, respectful, and invisible on the floor. The convocation film felt like a documentary, not event coverage. Our faculty shared it everywhere."
+      },
+      {
+        name: "Hassan Raza",
+        eventType: "Brand Film",
+        rating: 5,
+        message:
+          "Our product launch needed luxury pacing on a tight timeline. ZH delivered a 60-second spot that outperformed every ad we ran that quarter."
+      },
+      {
+        name: "Ayesha & Umer",
+        eventType: "Mehndi",
+        rating: 4,
+        message:
+          "The neon grade on our mehndi teaser is unreal. Dance floor energy, drone shots over the haveli — friends keep asking who filmed it."
+      },
+      {
+        name: "Sana K.",
+        eventType: "Gear Rental",
+        rating: 5,
+        message:
+          "Rented the FX3 kit and gimbal for a short film. Everything arrived charged, cleaned, and labelled. Zulfikar even sent LUT tips on WhatsApp."
+      },
+      {
+        name: "Bilal & Hira",
+        eventType: "Walima",
+        rating: 5,
+        message:
+          "From the first call to the final edit, the Film Family treated our day like a feature premiere. Worth every rupee."
+      }
+    ]
   });
 
   const categories = ["weddings", "aku", "commercial", "pre-events"] as const;
@@ -386,6 +436,19 @@ async function main() {
       }
     ]
   });
+
+  // Seed an "audience" so the Most Loved ranking has signal on a fresh install
+  const reels = await prisma.reel.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } });
+  const crewRows = await prisma.crewMember.findMany({ select: { id: true } });
+  const favs: { ownerId: string; itemType: string; itemId: string }[] = [];
+  reels.forEach((r, i) => {
+    const fans = Math.max(0, 14 - ((i * 5) % 15));
+    for (let f = 0; f < fans; f++) favs.push({ ownerId: `visitor:seed-${f}`, itemType: "reel", itemId: r.id });
+  });
+  crewRows.forEach((c, i) => {
+    for (let f = 0; f < 9 - i; f++) favs.push({ ownerId: `visitor:seed-${f}`, itemType: "crew", itemId: c.id });
+  });
+  await prisma.favorite.createMany({ data: favs });
 
   console.log("Film Family seed complete");
 }

@@ -8,11 +8,13 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: gate.reason }, { status: 401 });
   }
 
-  const [bookings, hires, rentals, sells] = await Promise.all([
+  const [bookings, hires, rentals, sells, reviews, favoriteCount] = await Promise.all([
     prisma.booking.findMany({ orderBy: [{ eventDate: "asc" }, { createdAt: "desc" }] }),
     prisma.hireRequest.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.rentalInquiry.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.sellInquiry.findMany({ orderBy: { createdAt: "desc" } })
+    prisma.sellInquiry.findMany({ orderBy: { createdAt: "desc" } }),
+    prisma.review.findMany({ orderBy: { createdAt: "desc" }, take: 50 }),
+    prisma.favorite.count()
   ]);
 
   // Group bookings by date so admin sees same-day clients separately
@@ -28,7 +30,10 @@ export async function GET() {
     hires,
     rentals,
     sells,
+    reviews,
     counts: {
+      reviews: reviews.length,
+      favorites: favoriteCount,
       bookings: bookings.length,
       hires: hires.length,
       rentals: rentals.length,

@@ -16,7 +16,30 @@ model Reel {
   thumbnail   String
   durationSec Int      @default(60)
   featured    Boolean  @default(false)
+  views       Int      @default(0)
   createdAt   DateTime @default(now())
+}
+
+/// ownerId is either "user:<clerkId>" or "visitor:<uuid>" from the zh_vid cookie.
+model Favorite {
+  id        String   @id @default(cuid())
+  ownerId   String
+  itemType  String
+  itemId    String
+  createdAt DateTime @default(now())
+
+  @@unique([ownerId, itemType, itemId])
+  @@index([itemType, itemId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  name      String
+  eventType String
+  rating    Int
+  message   String
+  approved  Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 model GalleryItem {
