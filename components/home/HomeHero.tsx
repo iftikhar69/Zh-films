@@ -67,13 +67,13 @@ export function HomeHero({
         transition={{ duration: 1.3, delay: 0, ease: [0.76, 0, 0.24, 1] }}
       />
 
-      <div className="relative z-20 pt-20">
+      <div className="relative z-20 mt-20 h-12 sm:mt-24">
         <CameraHUD />
       </div>
 
       <motion.div
         style={{ y: contentY, opacity: contentOpacity }}
-        className="relative z-20 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 pb-10 pt-16 sm:px-6"
+        className="relative z-20 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-4 pb-10 pt-6 sm:px-6"
       >
         <motion.p
           initial={{ opacity: 0, y: 14 }}

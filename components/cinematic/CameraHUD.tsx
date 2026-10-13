@@ -42,13 +42,13 @@ export function CameraHUD() {
           </span>
           Rec
         </span>
-        <span className="text-zinc-500">Scene 01</span>
+        <span className="hidden text-zinc-500 sm:inline">Scene 01</span>
         <span className="text-zinc-500">{timecode}</span>
       </motion.div>
       <motion.div
         initial={{ opacity: 0, x: 12 }}
         animate={{ opacity: 1, x: 0 }}
-        className="text-right text-zinc-400"
+        className="hidden text-right text-zinc-400 sm:block"
       >
         <div>
           ISO {iso} · f/1.4 · 4K UHD

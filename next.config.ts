@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Dev server is opened via 127.0.0.1 / LAN IPs; Next 16 blocks dev chunks + HMR for unlisted origins.
+  allowedDevOrigins: ["127.0.0.1", "localhost", "0.0.0.0"],
   turbopack: {
     // Pin workspace root when multiple lockfiles exist above this folder.
     root: "."
