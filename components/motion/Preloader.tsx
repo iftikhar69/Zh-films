@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useUi } from "@/stores/ui-store";
 
 const SEEN_KEY = "zh_intro_seen";
 
@@ -13,6 +14,11 @@ const SEEN_KEY = "zh_intro_seen";
 export function Preloader() {
   const [count, setCount] = useState(3);
   const [visible, setVisible] = useState(true);
+  const setIntroDone = useUi((s) => s.setIntroDone);
+
+  useEffect(() => {
+    if (!visible) setIntroDone();
+  }, [visible, setIntroDone]);
 
   useEffect(() => {
     if (document.documentElement.dataset.intro === "seen") {

@@ -6,6 +6,8 @@ import { createPortal } from "react-dom";
 import { useSoundscape } from "@/hooks/useSoundscape";
 import { useCinemaStore } from "@/stores/cinema-store";
 import { Button } from "@/components/ui/button";
+import { FavoriteButton } from "@/components/favorites/FavoriteButton";
+import type { FavoriteType } from "@/lib/favorites";
 
 export type TheaterItem = {
   id: string;
@@ -22,9 +24,12 @@ type Props = {
   index: number;
   onIndexChange: (i: number) => void;
   onClose: () => void;
+  favoriteType?: FavoriteType;
+  /** POSTs a view to /api/reels/:id/view each time a reel is shown. */
+  trackViews?: boolean;
 };
 
-export function TheaterViewer({ open, items, index, onIndexChange, onClose }: Props) {
+export function TheaterViewer({ open, items, index, onIndexChange, onClose, favoriteType, trackViews }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const { applause, shutter } = useSoundscape();
   const soundEnabled = useCinemaStore((s) => s.soundEnabled);
@@ -84,6 +89,12 @@ export function TheaterViewer({ open, items, index, onIndexChange, onClose }: Pr
     void v.play().catch(() => undefined);
   }, [index, item, open]);
 
+  const itemId = item?.id;
+  useEffect(() => {
+    if (!open || !trackViews || !itemId) return;
+    void fetch(`/api/reels/${itemId}/view`, { method: "POST" }).catch(() => undefined);
+  }, [open, trackViews, itemId]);
+
   if (!open || !item || typeof document === "undefined") return null;
 
   return createPortal(
@@ -91,7 +102,8 @@ export function TheaterViewer({ open, items, index, onIndexChange, onClose }: Pr
       role="dialog"
       aria-modal="true"
       aria-label={`Theater: ${item.title}`}
-      className="fixed inset-0 z-[120] flex flex-col bg-black"
+      className="fixed inset-0 z-[120] flex flex-col bg-black animate-in fade-in-0 zoom-in-95 duration-300"
+      data-lenis-prevent
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.75)_100%)]" />
       <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-black to-transparent sm:w-16" />
@@ -105,7 +117,8 @@ export function TheaterViewer({ open, items, index, onIndexChange, onClose }: Pr
             {item.meta ? ` · ${item.meta}` : ""} · ← → space · esc
           </p>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          {favoriteType ? <FavoriteButton type={favoriteType} id={item.id} title={item.title} size="sm" /> : null}
           <Button type="button" size="sm" variant="outline" onClick={() => go(-1)}>
             Prev
           </Button>

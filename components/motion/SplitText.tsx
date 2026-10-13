@@ -11,6 +11,8 @@ type Props = {
   stagger?: number;
   as?: "h1" | "h2" | "h3" | "p" | "span";
   inView?: boolean;
+  /** Hold the animation until true (e.g. after the intro overlay lifts). */
+  play?: boolean;
 };
 
 /** Per-character mask reveal. Screen readers get the plain string via aria-label. */
@@ -21,7 +23,8 @@ export function SplitText({
   delay = 0,
   stagger = 0.035,
   as = "span",
-  inView = false
+  inView = false,
+  play = true
 }: Props) {
   const Tag = motion[as];
   const words = text.split(" ");
@@ -29,7 +32,7 @@ export function SplitText({
 
   const trigger = inView
     ? { whileInView: "show", viewport: { once: true, margin: "-10% 0px" } }
-    : { animate: "show" };
+    : { animate: play ? "show" : "hidden" };
 
   return (
     <Tag aria-label={text} className={cn("inline-block", className)} initial="hidden" {...trigger}>

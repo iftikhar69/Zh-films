@@ -1,33 +1,50 @@
 import type { Metadata } from "next";
-import { CinematicHero } from "@/components/cinematic/CinematicHero";
+import { prisma } from "@/lib/prisma";
+import { getLoveCounts, getMostLovedReels, getReviewStats } from "@/lib/queries";
+import { HomeHero } from "@/components/home/HomeHero";
+import { ServicesBand } from "@/components/home/ServicesBand";
+import { FeaturedReels } from "@/components/home/FeaturedReels";
+import { ProcessTimeline } from "@/components/home/ProcessTimeline";
+import { MostLoved } from "@/components/home/MostLoved";
+import { ReviewsWall } from "@/components/home/ReviewsWall";
 import { InstagramFeedSection } from "@/components/sections/InstagramFeedSection";
 import { MoodTeaserEngine } from "@/components/emotion/MoodTeaserEngine";
 import { HouseDirectory } from "@/components/house/HouseDirectory";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = buildPageMetadata({
   title: "Opening Scene",
   description:
-    "Living viewfinder hero for ZH Films — directed by Zulfikar Hussain. Cinematic wedding films, AKU events, and commercial cinema in Lahore.",
+    "ZH Films — directed by Zulfikar Hussain. Cinematic wedding films, AKU events, and commercial cinema in Lahore.",
   path: "/"
 });
 
-function SceneDivider({ label }: { label: string }) {
-  return (
-    <div className="relative border-y border-white/5 bg-gradient-to-r from-black via-zinc-950 to-black py-8 text-center">
-      <p className="text-[10px] uppercase tracking-[0.55em] text-zh-gold/80">{label}</p>
-    </div>
+export default async function HomePage() {
+  const [featured, loved, reviews, stats, reelCount] = await Promise.all([
+    prisma.reel.findMany({ where: { featured: true }, orderBy: { views: "desc" }, take: 6 }),
+    getMostLovedReels(6),
+    prisma.review.findMany({ where: { approved: true }, orderBy: { createdAt: "desc" }, take: 20 }),
+    getReviewStats(),
+    prisma.reel.count()
+  ]);
+  const loves = await getLoveCounts(
+    "reel",
+    featured.map((r) => r.id)
   );
-}
 
-export default function HomePage() {
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Home", path: "/" }])} />
-      <CinematicHero />
-      <SceneDivider label="Intermission · 00:01:12" />
+      <HomeHero reviewAverage={stats.average} reviewCount={stats.count} reelCount={reelCount} />
+      <ServicesBand />
+      <FeaturedReels reels={featured} loves={loves} />
+      <ProcessTimeline />
       <MoodTeaserEngine />
+      <MostLoved reels={loved} />
       <HouseDirectory />
+      <ReviewsWall initial={reviews} stats={stats} />
       <InstagramFeedSection />
     </>
   );
