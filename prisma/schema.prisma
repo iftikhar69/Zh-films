@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Reel {
+  id          String   @id @default(cuid())
+  title       String
+  category    String   @default("weddings")
+  description String?
+  videoUrl    String
+  thumbnail   String
+  durationSec Int      @default(60)
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model GalleryItem {
+  id        String   @id @default(cuid())
+  title     String
+  category  String
+  mediaType String
+  url       String
+  thumbnail String?
+  width     Int?
+  height    Int?
+  createdAt DateTime @default(now())
+}
+
+model JournalPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  content     String
+  coverImage  String?
+  publishedAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  source    String   @default("directors_cut")
+  createdAt DateTime @default(now())
+}
+
+model Booking {
+  id               String   @id @default(cuid())
+  confirmationCode String   @unique
+  names            String
+  city             String
+  eventDate        String
+  coverage         String
+  deliverables     String
+  references       String   @default("")
+  email            String
+  phone            String
+  status           String   @default("pending")
+  clerkUserId      String?
+  notes            String?
+  createdAt        DateTime @default(now())
+}
+
+model HireRequest {
+  id          String   @id @default(cuid())
+  crewId      String
+  crewName    String
+  eventDate   String
+  brief       String
+  clientName  String
+  email       String
+  phone       String
+  status      String   @default("pending")
+  clerkUserId String?
+  createdAt   DateTime @default(now())
+}
+
+model RentalInquiry {
+  id          String   @id @default(cuid())
+  gearId      String
+  gearName    String
+  category    String
+  startDate   String
+  endDate     String   @default("")
+  clientName  String
+  email       String
+  phone       String
+  message     String   @default("")
+  status      String   @default("pending")
+  clerkUserId String?
+  createdAt   DateTime @default(now())
+}
+
+model SellInquiry {
+  id          String   @id @default(cuid())
+  gearId      String?
+  gearName    String
+  category    String
+  clientName  String
+  email       String
+  phone       String
+  message     String   @default("")
+  status      String   @default("pending")
+  clerkUserId String?
+  createdAt   DateTime @default(now())
+}
+
+model CrewMember {
+  id        String  @id @default(cuid())
+  slug      String  @unique
+  name      String
+  role      String
+  title     String
+  bio       String
+  image     String
+  yearsExp  String  @default("3+")
+  specialty String  @default("weddings")
+  whatsapp  String?
+  instagram String?
+  facebook  String?
+  email     String?
+  featured  Boolean @default(false)
+  sortOrder Int     @default(0)
+}
+
+model GearItem {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  brand       String
+  category    String
+  listingType String
+  priceLabel  String
+  description String
+  image       String
+  available   Boolean @default(true)
+  sortOrder   Int     @default(0)
+}

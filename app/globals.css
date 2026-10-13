@@ -1,0 +1,139 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@theme {
+  --font-sans: var(--font-dm), ui-sans-serif, system-ui;
+  --font-serif: var(--font-play), ui-serif, Georgia;
+  --font-family-display: var(--font-syne), ui-sans-serif, system-ui;
+  --color-zh-black: #080706;
+  --color-zh-void: #0a0a0a;
+  --color-zh-gold: #c8a96a;
+  --color-zh-gold-dim: #9a7d4f;
+  --color-zh-ember: #ff6b2c;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  /* Instant scroll — smooth scroll fights compositing on low-end GPUs */
+  html {
+    scroll-behavior: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+  body {
+    @apply bg-zh-black text-zinc-100 antialiased;
+    font-feature-settings: "ss01" on, "cv02" on;
+  }
+}
+
+/*
+  Film overlays are OFF by default — SVG noise + mix-blend on a fixed
+  full-screen layer was the main scroll/tab lag on weak machines.
+  Cinema Mode opts back into the grade.
+*/
+.zh-grain,
+.zh-light-leak,
+.zh-scanlines {
+  display: none;
+}
+
+.zh-vignette {
+  display: none;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: radial-gradient(ellipse at center, transparent 48%, rgba(0, 0, 0, 0.55) 100%);
+  contain: strict;
+}
+
+.zh-cinema-mode .zh-grain {
+  display: block;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  contain: strict;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: 128px 128px;
+}
+
+.zh-cinema-mode .zh-light-leak {
+  display: block;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: radial-gradient(circle at 18% 18%, rgba(200, 169, 106, 0.1), transparent 42%),
+    radial-gradient(circle at 82% 28%, rgba(255, 107, 44, 0.06), transparent 38%);
+  mix-blend-mode: screen;
+  opacity: 0.35;
+  contain: strict;
+}
+
+.zh-cinema-mode .zh-vignette {
+  display: block;
+  background: radial-gradient(ellipse at center, transparent 36%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+.zh-cinema-mode .zh-scanlines {
+  display: block;
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 46;
+  opacity: 0.04;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 5px
+  );
+  contain: strict;
+}
+
+@keyframes zh-curtain-open-l {
+  from { transform: translateX(0); }
+  to { transform: translateX(-105%); }
+}
+@keyframes zh-curtain-open-r {
+  from { transform: translateX(0); }
+  to { transform: translateX(105%); }
+}
+@keyframes zh-applause-flash {
+  0% { opacity: 0; }
+  12% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.zh-theater-curtain-l {
+  animation: zh-curtain-open-l 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.zh-theater-curtain-r {
+  animation: zh-curtain-open-r 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.zh-applause-cue {
+  animation: zh-applause-flash 1.4s ease-out forwards;
+}
+
+/* Film-house call sheet — cheap CSS, no filters */
+.zh-callsheet {
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 18px,
+      rgba(200, 169, 106, 0.04) 18px 19px
+    );
+  box-shadow: inset 10px 0 0 rgba(200, 169, 106, 0.12);
+}
