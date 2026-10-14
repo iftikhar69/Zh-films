@@ -20,7 +20,7 @@ export function SmoothScroll() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const lenis = new Lenis({
-      lerp: 0.11,
+      lerp: 0.16,
       wheelMultiplier: 1,
       prevent: (node) => Boolean(node.closest?.("[role='dialog'], [data-lenis-prevent], [cmdk-list]"))
     });

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "framer-motion";
 import { Heart, Menu, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,10 +42,20 @@ export function FilmNav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [hovered, setHovered] = useState<string | null>(null);
 
+  // Scroll fires every frame; only touch React state when a value actually flips.
+  const navState = useRef({ hidden: false, scrolled: false });
   useMotionValueEvent(scrollY, "change", (y) => {
-    const prev = scrollY.getPrevious() ?? 0;
-    setScrolled(y > 24);
-    setHidden(y > 240 && y > prev && !menuOpen);
+    const delta = y - (scrollY.getPrevious() ?? 0);
+    const nextScrolled = y > 24;
+    const nextHidden = Math.abs(delta) < 4 ? navState.current.hidden : y > 240 && delta > 0 && !menuOpen;
+    if (nextScrolled !== navState.current.scrolled) {
+      navState.current.scrolled = nextScrolled;
+      setScrolled(nextScrolled);
+    }
+    if (nextHidden !== navState.current.hidden) {
+      navState.current.hidden = nextHidden;
+      setHidden(nextHidden);
+    }
   });
 
   const [menuPath, setMenuPath] = useState(pathname);
@@ -211,7 +221,7 @@ export function FilmNav() {
             transition={{ duration: 0.6, ease: [0.76, 0, 0.24, 1] }}
             data-lenis-prevent
           >
-            <div className="pointer-events-none absolute -left-20 top-20 h-72 w-72 rounded-full bg-zh-gold/20 blur-3xl zh-aurora" />
+            <div className="pointer-events-none absolute -left-20 top-20 h-72 w-72 rounded-full bg-zh-gold/20 blur-3xl" />
             <nav className="relative flex flex-col">
               {mobileLinks.map((l, i) => (
                 <motion.div

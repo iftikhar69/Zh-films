@@ -23,9 +23,13 @@ export function CustomCursor() {
   useEffect(() => {
     if (!enabled) return;
 
+    // pointermove only feeds motion values (no React render); hover targets are resolved
+    // on pointerover, which fires once per element boundary instead of every frame.
     const move = (e: PointerEvent) => {
       x.set(e.clientX);
       y.set(e.clientY);
+    };
+    const over = (e: PointerEvent) => {
       const el = e.target as HTMLElement | null;
       const labelled = el?.closest?.("[data-cursor]") as HTMLElement | null;
       setLabel(labelled?.dataset.cursor ?? null);
@@ -38,11 +42,13 @@ export function CustomCursor() {
       y.set(-100);
     };
     window.addEventListener("pointermove", move, { passive: true });
+    window.addEventListener("pointerover", over, { passive: true });
     window.addEventListener("pointerdown", press);
     window.addEventListener("pointerup", release);
     document.documentElement.addEventListener("pointerleave", leave);
     return () => {
       window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerover", over);
       window.removeEventListener("pointerdown", press);
       window.removeEventListener("pointerup", release);
       document.documentElement.removeEventListener("pointerleave", leave);
@@ -57,7 +63,7 @@ export function CustomCursor() {
     <div aria-hidden className="pointer-events-none fixed inset-0 z-[200]">
       <motion.div className="absolute left-0 top-0" style={{ x: sx, y: sy }}>
         <motion.div
-          className="-translate-x-1/2 -translate-y-1/2 rounded-full border border-zh-gold/70 backdrop-blur-[1px]"
+          className="-translate-x-1/2 -translate-y-1/2 rounded-full border border-zh-gold/70"
           animate={{
             width: size,
             height: size,
