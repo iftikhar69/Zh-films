@@ -13,28 +13,28 @@ const MOODS = [
     label: "Romance",
     grade: "from-zh-gold/25 via-black to-black",
     tag: "Velvet vows. Gold hour. Soft flares.",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
+    video: "/moods/romance.mp4"
   },
   {
     id: "prestige",
     label: "Prestige",
     grade: "from-white/10 via-black to-black",
     tag: "Institutional dignity. AKU protocol. Clean audio.",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"
+    video: "/moods/prestige.mp4"
   },
   {
     id: "hype",
     label: "Hype",
     grade: "from-zh-ember/20 via-black to-black",
     tag: "Pre-event chaos. Neon grade. Fast cuts.",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+    video: "/moods/hype.mp4"
   },
   {
     id: "brand",
     label: "Brand Film",
     grade: "from-zh-gold/15 via-black to-black",
     tag: "Product poetry. Movement. Luxury pacing.",
-    video: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"
+    video: "/moods/brand.mp4"
   }
 ] as const;
 

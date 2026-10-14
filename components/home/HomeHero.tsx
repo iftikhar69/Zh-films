@@ -14,7 +14,7 @@ import { useUi } from "@/stores/ui-store";
 
 const HERO_VIDEO =
   process.env.NEXT_PUBLIC_HERO_VIDEO_URL ??
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
+  "/hero.mp4";
 
 const EASE = [0.16, 1, 0.3, 1] as const;
 

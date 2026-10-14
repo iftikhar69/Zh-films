@@ -12,7 +12,7 @@ import { useEffect } from "react";
 
 const HERO_VIDEO =
   process.env.NEXT_PUBLIC_HERO_VIDEO_URL ??
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4";
+  "/hero.mp4";
 
 export function CinematicHero() {
   const soundEnabled = useCinemaStore((s) => s.soundEnabled);
