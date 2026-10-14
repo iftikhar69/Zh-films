@@ -1,9 +1,14 @@
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+import instagramMedia from "../lib/instagram-media.json";
+
+const igVideos = instagramMedia.items.filter((i) => i.isVideo);
+const igPhotos = instagramMedia.items.flatMap((i) => i.images);
+const reelVideo = (i: number) => igVideos[i % igVideos.length].video!;
+const reelPoster = (i: number) => igVideos[i % igVideos.length].poster;
 const img = (seed: string) => `https://picsum.photos/seed/${seed}/1200/675`;
-const videoSample =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+const photo = (i: number) => igPhotos[i % igPhotos.length];
 
 async function main() {
   await prisma.favorite.deleteMany();
@@ -62,8 +67,8 @@ async function main() {
       title,
       category: reelCategoryFor(title),
       description: "Director's cut excerpt — graded in cinematic warm gold.",
-      videoUrl: videoSample,
-      thumbnail: img(`zh-reel-${i}`),
+      videoUrl: reelVideo(i),
+      thumbnail: reelPoster(i),
       durationSec: 45 + (i % 5) * 12,
       featured: i < 6,
       views: 1200 - i * 37 + ((i * 53) % 210)
@@ -129,8 +134,8 @@ async function main() {
       title: g.title,
       category: g.category,
       mediaType: g.mediaType,
-      url: g.mediaType === "video" ? videoSample : img(`zh-gallery-${i}`),
-      thumbnail: img(`zh-gallery-${i}`)
+      url: g.mediaType === "video" ? reelVideo(i / 4) : photo(i),
+      thumbnail: g.mediaType === "video" ? reelPoster(i / 4) : photo(i)
     }))
   });
 
@@ -142,7 +147,7 @@ async function main() {
         excerpt: "Light, haze, and emotion — the trinity of Pakistani wedding cinema.",
         content:
           "Gold hour in Lahore is not a clock — it is a feeling. We block scenes around it, choreograph entrances to it, and grade toward warm film stocks that honour skin tones and silk alike.",
-        coverImage: img("zh-journal-1")
+        coverImage: photo(6)
       },
       {
         slug: "aku-events-cinematic-protocol",
@@ -150,7 +155,7 @@ async function main() {
         excerpt: "Precision coverage that still breathes like a feature film.",
         content:
           "Medical campuses demand respect and rhythm. Our team maps sightlines, audio, and safe drone corridors before the first guest arrives.",
-        coverImage: img("zh-journal-2")
+        coverImage: photo(12)
       },
       {
         slug: "film-family-manifesto",
@@ -158,7 +163,7 @@ async function main() {
         excerpt: "Not a vendor list — a house of craft under one director.",
         content:
           "Photographers, editors, drone pilots, sound, gaffers — eight seats on the call sheet, one language of light. Zulfikar Hussain builds crews like casts.",
-        coverImage: img("zh-journal-3")
+        coverImage: photo(18)
       },
       {
         slug: "renting-cinema-glass",
@@ -166,7 +171,7 @@ async function main() {
         excerpt: "Sony bodies, anamorphics, gimbals — tools with stories.",
         content:
           "Our rental bay keeps working glass in Lahore circulation. Book a body, a gimbal, or a production car — the same kit we trust on set.",
-        coverImage: img("zh-journal-4")
+        coverImage: photo(24)
       },
       {
         slug: "selling-used-glass",
@@ -174,7 +179,7 @@ async function main() {
         excerpt: "Cameras and lenses leaving our vault — contact the director.",
         content:
           "When a body graduates from our A-cam rotation, it finds a new home through ZH Films. Message Zulfikar directly for condition reports and honest pricing.",
-        coverImage: img("zh-journal-5")
+        coverImage: photo(30)
       }
     ]
   });
