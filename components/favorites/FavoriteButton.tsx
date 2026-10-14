@@ -39,11 +39,11 @@ export function FavoriteButton({ type, id, title, count, showCount = false, clas
       }}
       whileTap={{ scale: 0.85 }}
       className={cn(
-        "relative inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 backdrop-blur-md transition-colors",
+        "relative inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 transition-colors",
         dim,
         active
           ? "border-rose-400/60 bg-rose-500/20 text-rose-300"
-          : "border-white/15 bg-black/55 text-zinc-200 hover:border-zh-gold/60 hover:text-zh-gold",
+          : "border-white/15 bg-black/70 text-zinc-200 hover:border-zh-gold/60 hover:text-zh-gold",
         className
       )}
     >

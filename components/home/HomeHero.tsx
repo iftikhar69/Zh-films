@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRef } from "react";
+import { useInViewVideo } from "@/hooks/useInViewVideo";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { ArrowDown, Play, Star } from "lucide-react";
 import { CameraHUD } from "@/components/cinematic/CameraHUD";
@@ -28,6 +29,8 @@ export function HomeHero({
 }) {
   const ready = useUi((s) => s.introDone);
   const ref = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  useInViewVideo(videoRef);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
   const videoScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.35]);
   const videoOpacity = useTransform(scrollYProgress, [0, 0.8], [0.6, 0.1]);
@@ -44,12 +47,12 @@ export function HomeHero({
   return (
     <section ref={ref} className="relative flex min-h-[100svh] flex-col overflow-hidden">
       <motion.div className="absolute inset-0" style={{ scale: videoScale, opacity: videoOpacity }}>
-        <video className="h-full w-full object-cover" src={HERO_VIDEO} autoPlay muted loop playsInline preload="auto" />
+        <video ref={videoRef} className="h-full w-full object-cover" src={HERO_VIDEO} muted loop playsInline preload="metadata" />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-zh-black" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(200,169,106,0.18),transparent_60%)]" />
       <div className="zh-hero-grain absolute inset-0" />
-      <div className="pointer-events-none absolute -left-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-zh-ember/15 blur-[120px] zh-aurora" />
+      <div className="pointer-events-none absolute -left-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-zh-ember/15 blur-[120px]" />
 
       {/* Letterbox bars "open" like a projector gate */}
       <motion.div
@@ -113,7 +116,7 @@ export function HomeHero({
               <Link
                 href="/reels"
                 data-cursor="Watch"
-                className="group flex items-center gap-4 rounded-full border border-white/15 bg-white/5 py-2 pl-2 pr-6 backdrop-blur-md transition hover:border-zh-gold/50"
+                className="group flex items-center gap-4 rounded-full border border-white/15 bg-black/45 py-2 pl-2 pr-6 transition hover:border-zh-gold/50"
               >
                 <span className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white text-black">
                   <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />
@@ -140,7 +143,7 @@ export function HomeHero({
         initial={{ opacity: 0 }}
         animate={ready ? { opacity: 1 } : undefined}
         transition={{ delay: 1.6, duration: 1 }}
-        className="relative z-20 border-t border-white/10 bg-black/40 backdrop-blur-md"
+        className="relative z-20 border-t border-white/10 bg-black/70"
       >
         <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-[repeat(4,1fr)_auto]">
           {stats.map((s, i) => (

@@ -71,7 +71,7 @@ export function FavoritesBoard() {
 
   return (
     <div className="relative mx-auto max-w-7xl px-4 pb-28 pt-32 sm:px-6 sm:pt-36">
-      <div className="pointer-events-none absolute right-0 top-10 h-80 w-80 rounded-full bg-rose-500/10 blur-[100px] zh-aurora" />
+      <div className="pointer-events-none absolute right-0 top-10 h-80 w-80 rounded-full bg-rose-500/10 blur-[100px]" />
 
       <header className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
@@ -167,7 +167,7 @@ export function FavoritesBoard() {
                   layout
                   initial={{ opacity: 0, y: 30, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1, transition: { delay: Math.min(i, 8) * 0.05 } }}
-                  exit={{ opacity: 0, scale: 0.85, filter: "blur(6px)", transition: { duration: 0.3 } }}
+                  exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.3 } }}
                   className="group relative overflow-hidden rounded-3xl border border-white/10 bg-zinc-950/70"
                 >
                   <Link href={c.href} data-cursor="Open" className="block">
@@ -180,7 +180,7 @@ export function FavoritesBoard() {
                         className="object-cover transition duration-700 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
-                      <span className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-zh-gold backdrop-blur">
+                      <span className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/60 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-zh-gold">
                         {FAVORITE_LABELS[c.type].singular}
                       </span>
                     </div>

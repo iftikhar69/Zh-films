@@ -159,7 +159,7 @@ export function GalleryExperience({
                   sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60 transition-opacity duration-500 group-hover:opacity-100" />
-                <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.25em] text-zh-gold backdrop-blur">
+                <span className="absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-white/15 bg-black/60 px-2.5 py-1 text-[10px] uppercase tracking-[0.25em] text-zh-gold">
                   {g.mediaType === "video" ? (
                     <Play className="h-2.5 w-2.5 fill-zh-gold" />
                   ) : null}

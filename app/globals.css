@@ -175,33 +175,22 @@ html[data-intro="seen"] .zh-preloader {
   animation: zh-marquee linear infinite;
   will-change: transform;
 }
-.zh-marquee:hover .zh-marquee-track {
+.zh-marquee:hover .zh-marquee-track,
+.zh-marquee[data-offscreen="true"] .zh-marquee-track {
   animation-play-state: paused;
 }
 
-@keyframes zh-shimmer {
-  from { background-position: 200% center; }
-  to { background-position: -200% center; }
-}
+/* Static gradient: animating background-position repaints the glyphs every frame. */
 .zh-text-shimmer {
-  background: linear-gradient(110deg, #c8a96a 20%, #f8ecc9 40%, #c8a96a 60%) 0 0 / 200% auto;
+  background: linear-gradient(110deg, #b8975a 10%, #f8ecc9 45%, #c8a96a 75%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: zh-shimmer 6s linear infinite;
 }
 
 .zh-text-outline {
   color: transparent;
   -webkit-text-stroke: 1px rgba(200, 169, 106, 0.55);
-}
-
-@keyframes zh-aurora {
-  0%, 100% { transform: translate3d(-10%, -6%, 0) scale(1); }
-  50% { transform: translate3d(8%, 6%, 0) scale(1.15); }
-}
-.zh-aurora {
-  animation: zh-aurora 18s ease-in-out infinite;
 }
 
 @keyframes zh-rec {

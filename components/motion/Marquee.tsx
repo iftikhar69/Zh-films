@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 export function Marquee({
@@ -11,8 +14,21 @@ export function Marquee({
   seconds?: number;
   className?: string;
 }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Off-screen marquees keep compositing (and repainting under masks) unless paused.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([entry]) => {
+      el.dataset.offscreen = entry.isIntersecting ? "false" : "true";
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <div className={cn("zh-marquee group relative flex overflow-hidden", className)}>
+    <div ref={ref} data-offscreen="true" className={cn("zh-marquee group relative flex overflow-hidden", className)}>
       {[0, 1].map((copy) => (
         <div
           key={copy}

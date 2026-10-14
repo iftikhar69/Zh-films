@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { InViewVideo } from "@/components/motion/InViewVideo";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { useSoundscape } from "@/hooks/useSoundscape";
@@ -96,14 +97,7 @@ export function MoodTeaserEngine() {
                 className="relative"
               >
                 <div className="relative aspect-video">
-                  <video
-                    className="h-full w-full object-cover"
-                    src={mood.video}
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
+                  <InViewVideo className="h-full w-full object-cover" src={mood.video} preload="none" />
                   <div className={`absolute inset-0 bg-gradient-to-b ${mood.grade}`} />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_60%_30%,rgba(255,255,255,0.08),transparent_55%)]" />
                   <div className="absolute bottom-4 left-4 right-4">

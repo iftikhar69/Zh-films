@@ -107,7 +107,7 @@ export function ReelsVault({
 
   return (
     <div className="relative mx-auto max-w-7xl px-4 pb-28 pt-32 sm:px-6 sm:pt-40">
-      <div className="pointer-events-none absolute -top-10 left-1/3 h-96 w-96 rounded-full bg-zh-gold/10 blur-[120px] zh-aurora" />
+      <div className="pointer-events-none absolute -top-10 left-1/3 h-96 w-96 rounded-full bg-zh-gold/10 blur-[120px]" />
       <header className="relative mb-12 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.45em] text-zh-gold/80">
