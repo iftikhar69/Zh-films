@@ -43,7 +43,7 @@ export function SplitText({
             return (
               <motion.span
                 key={i}
-                className={cn("inline-block will-change-transform", charClassName)}
+                className={cn("inline-block", charClassName)}
                 variants={{
                   hidden: { y: "110%", rotate: 8, opacity: 0 },
                   show: {

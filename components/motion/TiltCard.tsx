@@ -1,6 +1,12 @@
 "use client";
 
-import { motion, useMotionTemplate, useMotionValue, useSpring, useTransform } from "framer-motion";
+import {
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from "framer-motion";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -8,7 +14,7 @@ import { cn } from "@/lib/utils";
 export function TiltCard({
   children,
   className,
-  max = 8
+  max = 8,
 }: {
   children: React.ReactNode;
   className?: string;
@@ -26,29 +32,32 @@ export function TiltCard({
   const glareOpacity = useSpring(0, spring);
 
   return (
-    <motion.div
-      ref={ref}
-      className={cn("relative [transform-style:preserve-3d]", className)}
-      style={{ rotateX, rotateY, transformPerspective: 1100 }}
-      onPointerMove={(e) => {
-        if (e.pointerType !== "mouse" || !ref.current) return;
-        const r = ref.current.getBoundingClientRect();
-        px.set((e.clientX - r.left) / r.width);
-        py.set((e.clientY - r.top) / r.height);
-        glareOpacity.set(1);
-      }}
-      onPointerLeave={() => {
-        px.set(0.5);
-        py.set(0.5);
-        glareOpacity.set(0);
-      }}
-    >
-      {children}
+    // Perspective lives on the wrapper so the card's transform is "none" (no GPU layer) at rest.
+    <div className="h-full [perspective:1100px]">
       <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-20 rounded-[inherit]"
-        style={{ background: glare, opacity: glareOpacity }}
-      />
-    </motion.div>
+        ref={ref}
+        className={cn("relative h-full", className)}
+        style={{ rotateX, rotateY }}
+        onPointerMove={(e) => {
+          if (e.pointerType !== "mouse" || !ref.current) return;
+          const r = ref.current.getBoundingClientRect();
+          px.set((e.clientX - r.left) / r.width);
+          py.set((e.clientY - r.top) / r.height);
+          glareOpacity.set(1);
+        }}
+        onPointerLeave={() => {
+          px.set(0.5);
+          py.set(0.5);
+          glareOpacity.set(0);
+        }}
+      >
+        {children}
+        <motion.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 rounded-[inherit]"
+          style={{ background: glare, opacity: glareOpacity }}
+        />
+      </motion.div>
+    </div>
   );
 }
