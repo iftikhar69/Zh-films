@@ -52,21 +52,6 @@ export function CommandPalette() {
   const [results, setResults] = useState<{ q: string; hits: SearchHit[] }>({ q: "", hits: [] });
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setOpen(!useUi.getState().searchOpen);
-      }
-      if (e.key === "/" && !(e.target as HTMLElement)?.closest?.("input, textarea, [contenteditable]")) {
-        e.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [setOpen]);
-
-  useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return;
     const ctrl = new AbortController();
