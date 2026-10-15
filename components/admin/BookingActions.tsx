@@ -31,7 +31,7 @@ type Props = {
 const COPY: Record<Kind, { title: string; body: string; cta: string; danger?: boolean; reason?: boolean }> = {
   confirm: {
     title: "Confirm this booking?",
-    body: "Availability is re-checked on the server. If the time is free it becomes a confirmed booking and the client is emailed.",
+    body: "The date is only locked once the advance is verified. Availability is re-checked on the server; if the time is free the booking is confirmed and the client is emailed.",
     cta: "Confirm booking"
   },
   decline: {
@@ -70,10 +70,13 @@ export function BookingActions(props: Props) {
   const [hours, setHours] = useState(props.defaultHoldHours);
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<string | null>(null);
+  const [unpaid, setUnpaid] = useState<string | null>(null);
+  const [overrideUsed, setOverrideUsed] = useState(false);
 
-  async function run(kind: Kind, override = false) {
+  async function run(kind: Kind, override = false, withoutAdvance = false) {
     setBusy(true);
     setConflict(null);
+    setUnpaid(null);
     try {
       const body =
         kind === "hold"
@@ -81,11 +84,15 @@ export function BookingActions(props: Props) {
           : kind === "decline" || kind === "cancel"
             ? { action: kind, reason: reason.trim() || undefined }
             : kind === "confirm"
-              ? { action: kind, override }
+              ? { action: kind, override, withoutAdvance }
               : { action: kind };
       const { res, json } = await post(`/api/admin/bookings/${props.bookingId}`, body);
       if (res.status === 409 && json.code === "slot_conflict") {
         setConflict(json.error ?? "Time conflict");
+        return;
+      }
+      if (res.status === 409 && json.code === "advance_unpaid") {
+        setUnpaid(json.error ?? "The advance hasn't been verified yet.");
         return;
       }
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Action failed");
@@ -179,9 +186,26 @@ export function BookingActions(props: Props) {
                   variant="outline"
                   className="mt-3 border-red-400/50 text-red-200"
                   disabled={busy}
-                  onClick={() => run("confirm", true)}
+                  onClick={() => {
+                    setOverrideUsed(true);
+                    run("confirm", true);
+                  }}
                 >
                   I have a second crew — confirm anyway
+                </Button>
+              </div>
+            ) : null}
+            {unpaid ? (
+              <div role="alert" className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                {unpaid}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="mt-3 border-amber-400/50 text-amber-100"
+                  disabled={busy}
+                  onClick={() => run("confirm", overrideUsed, true)}
+                >
+                  Advance received another way — confirm anyway
                 </Button>
               </div>
             ) : null}

@@ -106,9 +106,9 @@ async function act(id: string, body: object) {
 test("signed-out and non-admin users cannot run admin actions", async () => {
   const b = await request("Auth Check", "08:00", "09:00");
   session = { userId: null, admin: false };
-  assert.equal((await act(b.id, { action: "confirm" })).status, 401);
+  assert.equal((await act(b.id, { action: "confirm", withoutAdvance: true })).status, 401);
   session = { userId: "user_customer", admin: false };
-  assert.equal((await act(b.id, { action: "confirm" })).status, 403);
+  assert.equal((await act(b.id, { action: "confirm", withoutAdvance: true })).status, 403);
   assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).status, "pending");
 });
 
@@ -129,9 +129,9 @@ test("overlapping bookings cannot both be confirmed; cancelling releases the tim
   const a = await prisma.booking.findFirstOrThrow({ where: { names: "Ayesha & Bilal" } });
   const b = await prisma.booking.findFirstOrThrow({ where: { names: "Overlap Pending" } });
   sent.length = 0;
-  assert.equal((await act(a.id, { action: "confirm" })).status, 200);
+  assert.equal((await act(a.id, { action: "confirm", withoutAdvance: true })).status, 200);
   assert.ok(sent.some((m) => m.to.includes("couple@example.com") && /confirmed/i.test(m.subject)));
-  const clash = await act(b.id, { action: "confirm" });
+  const clash = await act(b.id, { action: "confirm", withoutAdvance: true });
   assert.equal(clash.status, 409);
   assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).status, "pending");
 
@@ -142,7 +142,7 @@ test("overlapping bookings cannot both be confirmed; cancelling releases the tim
   assert.equal(res.status, 409);
 
   assert.equal((await act(a.id, { action: "cancel", reason: "Family change" })).status, 200);
-  assert.equal((await act(b.id, { action: "confirm" })).status, 200);
+  assert.equal((await act(b.id, { action: "confirm", withoutAdvance: true })).status, 200);
 });
 
 test("owner holds block the slot and expire", async () => {
@@ -151,7 +151,7 @@ test("owner holds block the slot and expire", async () => {
   assert.equal((await act(h.id, { action: "hold", hours: 2 })).status, 200);
   const held = await prisma.booking.findUniqueOrThrow({ where: { id: h.id } });
   assert.ok(held.holdExpiresAt && held.holdExpiresAt > new Date());
-  assert.equal((await act(rival.id, { action: "confirm" })).status, 409);
+  assert.equal((await act(rival.id, { action: "confirm", withoutAdvance: true })).status, 409);
 
   await prisma.booking.update({ where: { id: h.id }, data: { holdExpiresAt: new Date(Date.now() - 60000) } });
   sent.length = 0;
@@ -160,7 +160,7 @@ test("owner holds block the slot and expire", async () => {
   const count = sent.length;
   await runReminders();
   assert.equal(sent.length, count, "reminders are deduplicated");
-  assert.equal((await act(rival.id, { action: "confirm" })).status, 200);
+  assert.equal((await act(rival.id, { action: "confirm", withoutAdvance: true })).status, 200);
 });
 
 test("payment submission is never auto-verified; only admins verify", async () => {
@@ -173,6 +173,9 @@ test("payment submission is never auto-verified; only admins verify", async () =
   await saveSettings(s, "test");
 
   assert.equal((await act(b.id, { action: "set_quote", quotedAmount: 100000, advanceAmount: 30000 })).status, 200);
+  const early = await act(b.id, { action: "confirm" });
+  assert.equal(early.status, 409, "cannot confirm before the advance is verified");
+  assert.equal(early.json.code, "advance_unpaid");
 
   const submit = async (token: string | null, file?: File) => {
     const form = new FormData();
@@ -223,6 +226,30 @@ test("payment submission is never auto-verified; only admins verify", async () =
   assert.equal(bk.paymentStatus, "paid");
   assert.equal(bk.status, "pending", "payment never changes booking status");
   assert.ok(sent.some((m) => m.to.includes("pay@example.com")));
+  assert.equal((await act(b.id, { action: "confirm" })).status, 200, "confirm allowed once the advance is verified");
+});
+
+test("customer can cancel a pending request with a message, not a confirmed one", async () => {
+  const cancel = (await import("../app/api/bookings/[code]/cancel/route")) as unknown as Mod;
+  const call = async (code: string, body: object) => {
+    const res = await cancel.POST(new Request("http://x", { method: "POST", body: JSON.stringify(body) }) as never,
+      { params: Promise.resolve({ code }) } as never);
+    return res.status;
+  };
+  const b = await request("Cancel Couple", "08:00", "09:00", "cancel@example.com");
+  session = { userId: null, admin: false };
+  assert.equal(await call(b.confirmationCode, { token: "wrong", message: "Plans changed" }), 404);
+  assert.equal(await call(b.confirmationCode, { token: b.accessToken, message: "" }), 400, "message required");
+  sent.length = 0;
+  assert.equal(await call(b.confirmationCode, { token: b.accessToken, message: "We moved the date" }), 200);
+  assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: b.id } })).status, "cancelled");
+  assert.ok(sent.some((m) => m.to.includes("owner@example.com") && m.text.includes("We moved the date")));
+
+  session = { userId: "user_owner", admin: true };
+  const c = await request("Confirmed Couple", "10:00", "11:00", "conf@example.com");
+  assert.equal((await act(c.id, { action: "confirm", withoutAdvance: true })).status, 200);
+  assert.equal(await call(c.confirmationCode, { token: c.accessToken, message: "Please cancel" }), 409);
+  assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: c.id } })).status, "confirmed");
 });
 
 test("email failures are logged, not thrown", async () => {
@@ -310,7 +337,7 @@ test("package booking: server computes the total, ignores browser totals, saves 
 test("multi-function conflicts: a confirmed second function blocks others and confirm re-checks every function", async () => {
   session = { userId: "user_owner", admin: true };
   const a = await prisma.booking.findFirstOrThrow({ where: { names: "Hina & Saad" } });
-  assert.equal((await act(a.id, { action: "confirm" })).status, 200);
+  assert.equal((await act(a.id, { action: "confirm", withoutAdvance: true })).status, 200);
 
   // Overlaps the Baraat (second function), not the Mehndi stored on the booking row.
   const event = await post({ kind: "event", eventType: "birthday", names: "Birthday", city: "Lahore", phone: "03001112223", eventDate: DATE3, startTime: "16:00", endTime: "18:00" });
@@ -319,7 +346,7 @@ test("multi-function conflicts: a confirmed second function blocks others and co
   const other = await post(wedding({ names: "Second Couple", functions: [{ type: "walima", eventDate: DATE3, startTime: "08:00", endTime: "10:00" }] }));
   assert.equal(other.status, 200, JSON.stringify(other.json));
   await prisma.bookingFunction.updateMany({ where: { bookingId: other.json.booking.id }, data: { blockStart: new Date(Date.parse(`${DATE3}T10:00:00Z`)), blockEnd: new Date(Date.parse(`${DATE3}T12:00:00Z`)) } });
-  assert.equal((await act(other.json.booking.id, { action: "confirm" })).status, 409, "overlap found on a function slot");
+  assert.equal((await act(other.json.booking.id, { action: "confirm", withoutAdvance: true })).status, 409, "overlap found on a function slot");
 });
 
 test("event booking in advance has its own type and is pending review", async () => {

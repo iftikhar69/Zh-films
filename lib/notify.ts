@@ -151,6 +151,34 @@ export async function notifyPaymentSubmitted(b: Booking, p: Payment) {
   });
 }
 
+export async function notifyCustomerCancelled(b: Booking, message: string) {
+  const settings = await getSettings();
+  const owner = await ownerEmails(settings);
+  const jobs = [
+    sendEmail({
+      kind: "customer_cancelled_self",
+      dedupeKey: `customer_cancelled_self:${b.id}`,
+      bookingId: b.id,
+      to: b.email,
+      subject: `You cancelled your request · ${b.confirmationCode}`,
+      text: `Hi ${b.names},\n\nYour request has been cancelled as you asked.\n\n${summary(b)}\n\nIf this was a mistake, send us a new request any time.\n\n— ZH Films`
+    })
+  ];
+  if (owner.length) {
+    jobs.push(
+      sendEmail({
+        kind: "owner_customer_cancelled",
+        dedupeKey: `owner_customer_cancelled:${b.id}`,
+        bookingId: b.id,
+        to: owner,
+        subject: `Customer cancelled their request · ${b.confirmationCode}`,
+        text: `${b.names} cancelled their request before it was confirmed.\n\n${summary(b)}\nPhone: ${b.phone}\n\nTheir message:\n${message}\n\n${adminLink(b)}`
+      })
+    );
+  }
+  return Promise.all(jobs);
+}
+
 export async function notifyPaymentDecision(b: Booking, p: Payment) {
   if (p.status === "verified") {
     return sendEmail({

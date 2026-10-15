@@ -7,6 +7,7 @@ import { SERVICES } from "@/lib/booking-rules";
 import { bookingStatusLabel, isHeld, paymentStatusLabel } from "@/lib/booking-status";
 import { formatInstant, formatPkr } from "@/lib/notify";
 import { PaymentSubmitForm } from "@/components/booking/PaymentSubmitForm";
+import { CancelRequestForm } from "@/components/booking/CancelRequestForm";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your booking", robots: { index: false, follow: false } };
@@ -61,7 +62,7 @@ export default async function CustomerBookingPage({
           {booking.status === "pending"
             ? held && booking.holdExpiresAt
               ? `We're holding this time for you until ${formatInstant(booking.holdExpiresAt)} while we finalise details. It is not confirmed yet.`
-              : "This is a request, not a reservation. We'll confirm with you before your date is reserved."
+              : "This is a request, not a reservation. Your date is locked only after your advance is received and ZH Films confirms it."
             : booking.status === "confirmed"
               ? "Your date and time are reserved with ZH Films."
               : booking.status === "declined"
@@ -141,6 +142,18 @@ export default async function CustomerBookingPage({
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {booking.status === "pending" ? (
+        <section className="space-y-2">
+          <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Changed your plans?</h2>
+          {booking.paymentStatus === "submitted" || booking.paymentStatus === "paid" ? (
+            <p className="text-xs text-amber-200">You&apos;ve sent a payment. After cancelling, contact ZH Films about your refund.</p>
+          ) : null}
+          <CancelRequestForm code={booking.confirmationCode} token={t} />
+        </section>
+      ) : booking.status === "confirmed" ? (
+        <p className="text-xs text-zinc-500">To change or cancel a confirmed booking, please contact ZH Films directly.</p>
       ) : null}
 
       <section className="space-y-2 text-xs text-zinc-500">

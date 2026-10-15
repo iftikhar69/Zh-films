@@ -9,7 +9,7 @@ import { getSettings } from "@/lib/settings";
 import { formatInstant, formatPkr, notifyAdvanceRequested, notifyHoldPlaced, notifyStatusChange } from "@/lib/notify";
 
 const action = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("confirm"), override: z.boolean().optional() }),
+  z.object({ action: z.literal("confirm"), override: z.boolean().optional(), withoutAdvance: z.boolean().optional() }),
   z.object({ action: z.literal("decline"), reason: z.string().max(1000).optional() }),
   z.object({ action: z.literal("cancel"), reason: z.string().max(1000).optional() }),
   z.object({ action: z.literal("complete") }),
@@ -32,7 +32,7 @@ const TARGET: Partial<Record<string, BookingStatus>> = {
 };
 
 class ActionError extends Error {
-  constructor(message: string, public status = 400) {
+  constructor(message: string, public status = 400, public code?: string) {
     super(message);
   }
 }
@@ -67,6 +67,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
         if (target === "confirmed") {
           if (!current.blockStart || !current.blockEnd) throw new ActionError("This booking has no time range to reserve.");
+          if (current.paymentStatus !== "paid" && !("withoutAdvance" in input && input.withoutAdvance)) {
+            throw new ActionError(
+              current.paymentStatus === "submitted"
+                ? "The customer reported a payment. Verify it under Payments before confirming."
+                : current.advanceAmount
+                  ? "The advance hasn't been received yet. Confirm once the payment is verified."
+                  : "Set a quote and advance first. The date is locked once the advance is verified.",
+              409,
+              "advance_unpaid"
+            );
+          }
           if (!("override" in input && input.override)) {
             await assertBookingFree(tx, current, now);
           }
@@ -76,7 +87,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           where: { id },
           data: { status: target, holdExpiresAt: null, heldBy: null }
         });
-        const overrideNote = "override" in input && input.override ? " (availability override)" : "";
+        const overrideNote =
+          ("override" in input && input.override ? " (availability override)" : "") +
+          (target === "confirmed" && current.paymentStatus !== "paid" ? " (confirmed without verified advance)" : "");
         await logBookingEvent(tx, id, `status:${target}`, `${current.status} → ${target}${overrideNote}${reason ? ` — ${reason}` : ""}`, actor);
         return { booking: updated, previous: current };
       }
@@ -162,7 +175,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         { status: 409 }
       );
     }
-    if (e instanceof ActionError) return NextResponse.json({ ok: false, error: e.message }, { status: e.status });
+    if (e instanceof ActionError) return NextResponse.json({ ok: false, error: e.message, code: e.code }, { status: e.status });
     console.error("[admin] booking action failed", e);
     return NextResponse.json({ ok: false, error: "Action failed" }, { status: 500 });
   }
