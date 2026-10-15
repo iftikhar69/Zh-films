@@ -8,7 +8,11 @@ const hasClerk =
   Boolean(process.env.CLERK_SECRET_KEY);
 
 const clerkHandler = clerkMiddleware(async (auth, req) => {
-  if (isProtected(req)) await auth.protect();
+  if (isProtected(req)) {
+    const signIn = new URL("/sign-in", req.url);
+    signIn.searchParams.set("redirect_url", req.nextUrl.pathname);
+    await auth.protect({ unauthenticatedUrl: signIn.toString() });
+  }
 });
 
 export default function middleware(req: NextRequest, event: unknown) {
