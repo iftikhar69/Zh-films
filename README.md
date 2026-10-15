@@ -89,11 +89,31 @@ docker compose up --build
 - **Client area** (`/account`): signed-in clients see their bookings with booking status and payment status. Bookings made before signing up are attached automatically when the booking email matches a **verified** email on their Clerk account.
 - **Staff area** (`/admin`): checked on the server with `requireAdmin()` in `lib/auth.ts` — Clerk `publicMetadata.role = "admin"` (only settable from the Clerk dashboard or backend) or an email in `ADMIN_EMAILS`. Staff update booking and payment status through `PATCH /api/admin/bookings/:id`.
 
-## Booking flow
+## Booking flow and availability
 
-`/book` works without an account. Drafts are saved in the browser session (so a trip to sign in does not lose them), `?service=` pre-fills coverage, and every submission carries an idempotency key so double clicks or retries never create duplicate bookings.
+`/book` works without an account: service, location, date, start/end time, requirements and contact. Drafts are saved in the browser session, `?service=wedding|nikah|event|shoot|photography|videography` pre-selects a service, and every submission carries an idempotency key so double clicks or retries never create duplicates.
 
-Booking statuses: `pending → confirmed → in_production → delivered` (or `cancelled`).
+Rules live in `lib/booking-rules.ts` and are enforced on the server:
+
+| Rule | Value |
+|---|---|
+| Timezone | `Asia/Karachi` for all dates and times |
+| Booking window | from 2 days to 2 years ahead |
+| Time range | any start/end; an end before the start runs past midnight; max 16 hours |
+| Team | one production team (`film-family`) — overlapping slots conflict |
+| Buffers | per service setup/travel time before and after (e.g. wedding 90/60 min) |
+
+How statuses affect availability:
+
+| Status | Blocks the slot? |
+|---|---|
+| `pending` | only while its 48-hour hold is active, then the time is released (the request stays for staff to review) |
+| `confirmed`, `in_production`, `delivered` | yes |
+| `cancelled`, `declined` | no |
+
+Concurrency: every booking write runs inside a transaction that first bumps the team's `ScheduleLock` row, so simultaneous requests are serialized before conflicts are checked. Staff confirming a request re-check conflicts the same way; only staff can override (recorded in the booking notes). The public `GET /api/bookings?date=YYYY-MM-DD` returns busy time ranges only — never names, contacts or statuses.
+
+Tests: `npm test` (scheduling rules, timezone, buffers, holds).
 
 ## Payments
 
