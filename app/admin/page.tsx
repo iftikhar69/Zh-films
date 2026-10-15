@@ -4,6 +4,8 @@ import { AdminDesk } from "@/components/admin/AdminDesk";
 import { requireAdmin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Production Office",
   robots: { index: false, follow: false }
