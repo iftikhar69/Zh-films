@@ -5,6 +5,8 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { ServicesBand } from "@/components/home/ServicesBand";
 import { FeaturedReels } from "@/components/home/FeaturedReels";
 import { ProcessTimeline } from "@/components/home/ProcessTimeline";
+import { ReserveYourDate } from "@/components/home/ReserveYourDate";
+import { confirmedDatesAhead } from "@/lib/booking-availability";
 import { MostLoved } from "@/components/home/MostLoved";
 import { ReviewsWall } from "@/components/home/ReviewsWall";
 import { InstagramFeedSection } from "@/components/sections/InstagramFeedSection";
@@ -22,12 +24,13 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function HomePage() {
-  const [featured, loved, reviews, stats, reelCount] = await Promise.all([
+  const [featured, loved, reviews, stats, reelCount, confirmedDates] = await Promise.all([
     prisma.reel.findMany({ where: { featured: true }, orderBy: { views: "desc" }, take: 6 }),
     getMostLovedReels(6),
     prisma.review.findMany({ where: { approved: true }, orderBy: { createdAt: "desc" }, take: 20 }),
     getReviewStats(),
-    prisma.reel.count()
+    prisma.reel.count(),
+    confirmedDatesAhead(90)
   ]);
   const loves = await getLoveCounts(
     "reel",
@@ -41,6 +44,7 @@ export default async function HomePage() {
       <ServicesBand />
       <FeaturedReels reels={featured} loves={loves} />
       <ProcessTimeline />
+      <ReserveYourDate confirmedDates={confirmedDates} />
       <MoodTeaserEngine />
       <MostLoved reels={loved} />
       <HouseDirectory />
