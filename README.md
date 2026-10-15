@@ -82,4 +82,3 @@ cursor.
 ```bash
 docker compose up --build
 ```
-# Zh-films
