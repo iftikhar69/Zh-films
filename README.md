@@ -76,6 +76,9 @@ cursor.
 - `npm run build` / `npm start` — production
 - `npm run lint` — ESLint (Next core-web-vitals + TypeScript)
 - `npm run db:push` / `npm run db:seed` — schema + demo data
+- `npm test` — scheduling rules; `npm run test:workflow` — end-to-end booking/payment/email workflow on a throwaway database
+- `npm run admin:grant -- <email>` / `-- <email> --revoke` / `-- --list` — owner admin bootstrap (see below)
+- `npm run reminders` — run the reminder job once (same as the cron route)
 
 ## Docker
 
@@ -87,7 +90,24 @@ docker compose up --build
 
 - **Public pages** (home, reels, gallery, services, booking) never call private APIs. Clerk's client code, the search palette and the newsletter popup are loaded only when needed (`components/auth/AuthControls.tsx`, `components/search/SearchLauncher.tsx`, `components/marketing/LazyDirectorsCutClub.tsx`).
 - **Client area** (`/account`): signed-in clients see their bookings with booking status and payment status. Bookings made before signing up are attached automatically when the booking email matches a **verified** email on their Clerk account.
-- **Staff area** (`/admin`): checked on the server with `requireAdmin()` in `lib/auth.ts` — Clerk `publicMetadata.role = "admin"` (only settable from the Clerk dashboard or backend) or an email in `ADMIN_EMAILS`. Staff update booking and payment status through `PATCH /api/admin/bookings/:id`.
+- **Staff area** (`/admin`): every page and `/api/admin/*` route checks `requireAdmin()` (`lib/auth.ts`) on the server. Signed-out visitors are sent to sign-in (pages) or get `401` (APIs); signed-in non-admins get `404`/`403`. There is no admin signup.
+
+## Owner admin setup (one time)
+
+1. Put your Clerk keys in `.env` and start the site.
+2. Go to `/sign-up`, create your account with the owner email and **verify the email** (Clerk sends a code).
+3. On the server, run `npm run admin:grant -- you@example.com`. The script uses `CLERK_SECRET_KEY` to set `publicMetadata.role = "admin"` and refuses unverified emails. `npm run admin:grant -- --list` shows current admins.
+4. Sign out and back in, then open `/admin`.
+
+Alternative: list verified emails in `ADMIN_EMAILS`. To remove access: `npm run admin:grant -- you@example.com --revoke`.
+
+## Admin dashboard
+
+- **Overview** — pending requests, active holds, upcoming confirmed shoots, payments to verify (real counts only).
+- **Bookings** — search (name, code, email, phone, city) and filters (status, held, service, payment, date range, upcoming); detail page with conflict warning, history and actions: confirm, decline, cancel, complete, place/release a timed hold, set quote and advance, add notes.
+- **Calendar** — month view of confirmed bookings and active holds.
+- **Payments** — submitted / verified / rejected tabs; verify or reject (with reason). Records who decided and when.
+- **Settings** — Easypaisa and bank instructions, advance rules, hold length, notification email and reminder timings, policies; email log.
 
 ## Booking flow and availability
 
@@ -107,19 +127,30 @@ How statuses affect availability:
 
 | Status | Blocks the slot? |
 |---|---|
-| `pending` | only while its 48-hour hold is active, then the time is released (the request stays for staff to review) |
-| `confirmed`, `in_production`, `delivered` | yes |
+| `pending` | no — new requests are *pending review* and never reserve the date. Only while an owner-placed hold is active (default 48 h, set in Settings) does it block, and the hold expires automatically |
+| `confirmed`, `completed` | yes |
 | `cancelled`, `declined` | no |
 
 Concurrency: every booking write runs inside a transaction that first bumps the team's `ScheduleLock` row, so simultaneous requests are serialized before conflicts are checked. Staff confirming a request re-check conflicts the same way; only staff can override (recorded in the booking notes). The public `GET /api/bookings?date=YYYY-MM-DD` returns busy time ranges only — never names, contacts or statuses.
 
-Tests: `npm test` (scheduling rules, timezone, buffers, holds).
+Tests: `npm test` (scheduling rules, timezone, buffers, holds) and `npm run test:workflow` (admin-only actions, overlapping confirms refused, hold expiry, cancellation releasing time, payments never auto-verified, email sending/dedupe/failure logging).
 
-## Payments
+## Emails and reminders
 
-There is **no online payment integration yet**, on purpose. `Booking.paymentStatus` (`not_requested`, `awaiting`, `paid`, `refunded`) is set **only by staff** after they confirm money has arrived, and clients see it read-only. Nothing on the client can mark a booking paid.
+Emails go through [Resend](https://resend.com) when `RESEND_API_KEY` and `EMAIL_FROM` are set. Without them nothing is sent; each message is logged as *skipped* in Settings → Email log and the dashboard shows a banner. Every email has a dedupe key, so retries and repeated cron runs never send twice; failures are logged with the error.
 
-Before adding online payments, pick a provider that supports merchants in Pakistan (Stripe does not onboard Pakistani businesses). Candidates to evaluate: Safepay, PayFast (PK), JazzCash or Easypaisa merchant APIs. Whichever you pick, payment must be confirmed by a server-side webhook or verification call, which then moves `paymentStatus` to `paid`, and the SDK must load only on the payment route.
+- Owner: new request, payment submitted, request still pending, payment awaiting verification, hold expired.
+- Customer: request received (clearly *not* a reservation), hold placed, confirmed / declined / cancelled, advance requested and reminder, payment verified or rejected, hold expired.
+
+Reminders run from `GET /api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` (`vercel.json` schedules it every 30 minutes), or on a VPS with crontab: `*/30 * * * * cd /app && npm run reminders`.
+
+## Payments (manual Easypaisa / bank transfer)
+
+No payment gateway. The owner sets a quote and advance on a booking; the customer then sees the payment instructions from Settings on their private status page (`/booking/<code>?t=<token>`, linked in their emails and from `/account`). They submit the transaction reference and, optionally, a receipt (JPG, PNG, WebP or PDF, max 5 MB, checked by file signature). Receipts are stored outside `public/` in `storage/receipts` (or `RECEIPTS_DIR`) and are served only to admins.
+
+A submission only moves payment status to **submitted**. Only an admin can verify (after ticking “I checked my account”) or reject it, and payment status never changes the booking status. Never ask customers for PINs, passwords or OTPs.
+
+Hosting note: SQLite and local receipt storage need a server with a persistent disk (Docker/VPS). On serverless hosting, move to Postgres and object storage first.
 
 ## Hero video
 
