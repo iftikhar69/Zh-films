@@ -10,7 +10,9 @@
     "postinstall": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "prisma db seed",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "admin:grant": "tsx --env-file=.env scripts/grant-admin.ts",
+    "reminders": "tsx --env-file=.env scripts/run-reminders.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

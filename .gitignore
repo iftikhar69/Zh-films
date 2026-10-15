@@ -8,3 +8,6 @@ prisma/*.db-journal
 prisma/prisma/
 uploads/
 .DS_Store
+
+# Private uploads (payment receipts)
+storage/

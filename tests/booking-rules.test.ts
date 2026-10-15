@@ -60,8 +60,7 @@ test("which statuses occupy the calendar", () => {
   const future = new Date(NOW.getTime() + 3600000);
   const past = new Date(NOW.getTime() - 3600000);
   assert.equal(isBlocking({ status: "confirmed", holdExpiresAt: null }, NOW), true);
-  assert.equal(isBlocking({ status: "in_production", holdExpiresAt: null }, NOW), true);
-  assert.equal(isBlocking({ status: "delivered", holdExpiresAt: null }, NOW), true);
+  assert.equal(isBlocking({ status: "completed", holdExpiresAt: null }, NOW), true);
   assert.equal(isBlocking({ status: "pending", holdExpiresAt: future }, NOW), true);
   assert.equal(isBlocking({ status: "pending", holdExpiresAt: past }, NOW), false);
   assert.equal(isBlocking({ status: "pending", holdExpiresAt: null }, NOW), false);

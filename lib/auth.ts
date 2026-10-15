@@ -30,14 +30,15 @@ export async function requireAdmin() {
   if (!user) return { ok: false as const, reason: "Sign in required" };
 
   const role = (user.publicMetadata as { role?: string } | null)?.role;
-  const email =
-    user.primaryEmailAddress?.emailAddress?.toLowerCase() ??
-    user.emailAddresses[0]?.emailAddress?.toLowerCase() ??
-    "";
+  // An allow-listed email only counts once the user has verified they own it.
+  const verifiedEmails = user.emailAddresses
+    .filter((e) => e.verification?.status === "verified")
+    .map((e) => e.emailAddress.toLowerCase());
 
-  const isAdmin = role === "admin" || (email && ADMIN_EMAILS.includes(email));
+  const isAdmin = role === "admin" || verifiedEmails.some((e) => ADMIN_EMAILS.includes(e));
   if (!isAdmin) return { ok: false as const, reason: "Admin access only" };
-  return { ok: true as const, user, userId };
+  const actor = user.primaryEmailAddress?.emailAddress ?? verifiedEmails[0] ?? userId;
+  return { ok: true as const, user, userId, actor };
 }
 
 export async function isAdminUser() {

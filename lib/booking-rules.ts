@@ -15,8 +15,8 @@ export const BOOKING_WINDOW = {
   maxAdvanceDays: 730
 };
 
-/** A pending request reserves its slot for this long, then stops blocking other clients. */
-export const PENDING_HOLD_HOURS = 48;
+/** Default length of a staff-placed temporary hold (owner can change it in settings). */
+export const DEFAULT_HOLD_HOURS = 48;
 
 export const SERVICES = {
   wedding: { label: "Wedding", bufferBeforeMin: 90, bufferAfterMin: 60, defaultStart: "14:00", defaultEnd: "23:00" },
@@ -30,9 +30,9 @@ export const SERVICES = {
 export type ServiceType = keyof typeof SERVICES;
 export const SERVICE_TYPES = Object.keys(SERVICES) as [ServiceType, ...ServiceType[]];
 
-/** Statuses that always occupy the team's calendar. */
-export const BLOCKING_STATUSES = ["confirmed", "in_production", "delivered"] as const;
-/** Pending blocks only while its hold is active; cancelled/declined never block. */
+/** Statuses that permanently occupy the team's calendar. */
+export const BLOCKING_STATUSES = ["confirmed", "completed"] as const;
+/** Pending blocks only while a staff-placed hold is active; declined/cancelled never block. */
 export const HOLDING_STATUS = "pending";
 
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -146,8 +146,8 @@ export function isBlocking(b: { status: string; holdExpiresAt: Date | null }, no
   return b.status === HOLDING_STATUS && b.holdExpiresAt !== null && b.holdExpiresAt > now;
 }
 
-export function holdExpiry(now = new Date()) {
-  return new Date(now.getTime() + PENDING_HOLD_HOURS * 3600000);
+export function holdExpiry(hours: number, now = new Date()) {
+  return new Date(now.getTime() + hours * 3600000);
 }
 
 export function formatLocalTime(d: Date, timeZone = BOOKING_TIMEZONE) {

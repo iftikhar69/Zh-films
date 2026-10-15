@@ -1,58 +1,146 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
-import { BOOKING_STATUSES, PAYMENT_STATUSES } from "@/lib/booking-status";
-import { BLOCKING_STATUSES } from "@/lib/booking-rules";
+import { TRANSITIONS, isHeld, type BookingStatus } from "@/lib/booking-status";
+import { holdExpiry } from "@/lib/booking-rules";
 import { SlotUnavailableError, assertSlotFree, withScheduleLock } from "@/lib/booking-availability";
+import { logBookingEvent } from "@/lib/booking-events";
+import { getSettings } from "@/lib/settings";
+import { formatInstant, formatPkr, notifyAdvanceRequested, notifyHoldPlaced, notifyStatusChange } from "@/lib/notify";
 
-const schema = z
-  .object({
-    status: z.enum(BOOKING_STATUSES).optional(),
-    paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
-    notes: z.string().max(2000).optional(),
-    /** Staff may knowingly double-book (e.g. a second crew is available). Logged in notes. */
-    override: z.boolean().optional()
-  })
-  .strict()
-  .refine((v) => v.status || v.paymentStatus || v.notes !== undefined, "Nothing to update");
+const action = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("confirm"), override: z.boolean().optional() }),
+  z.object({ action: z.literal("decline"), reason: z.string().max(1000).optional() }),
+  z.object({ action: z.literal("cancel"), reason: z.string().max(1000).optional() }),
+  z.object({ action: z.literal("complete") }),
+  z.object({ action: z.literal("hold"), hours: z.number().int().min(1).max(336).optional() }),
+  z.object({ action: z.literal("release_hold") }),
+  z.object({
+    action: z.literal("set_quote"),
+    quotedAmount: z.number().int().min(0).max(100_000_000),
+    advanceAmount: z.number().int().min(0).max(100_000_000)
+  }),
+  z.object({ action: z.literal("note"), note: z.string().min(1).max(2000) })
+]);
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+const TARGET: Partial<Record<string, BookingStatus>> = {
+  confirm: "confirmed",
+  decline: "declined",
+  cancel: "cancelled",
+  complete: "completed"
+};
+
+class ActionError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message);
+  }
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const gate = await requireAdmin();
   if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.reason },
-      { status: gate.reason === "Admin access only" ? 403 : 401 }
-    );
+    return NextResponse.json({ ok: false, error: gate.reason }, { status: gate.reason === "Admin access only" ? 403 : 401 });
   }
-
-  const parsed = schema.safeParse(await req.json().catch(() => null));
+  const parsed = action.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message ?? "Invalid update" }, { status: 400 });
+    return NextResponse.json({ ok: false, error: parsed.error.issues[0]?.message ?? "Invalid action" }, { status: 400 });
   }
-  const { override, ...patch } = parsed.data;
+  const input = parsed.data;
   const { id } = await params;
+  const actor = gate.actor;
+  const settings = await getSettings();
 
   try {
-    const booking = await withScheduleLock(async (tx) => {
+    const { booking, previous } = await withScheduleLock(async (tx) => {
       const current = await tx.booking.findUnique({ where: { id } });
-      if (!current) return null;
+      if (!current) throw new ActionError("Booking not found", 404);
+      const now = new Date();
 
-      const willBlock = patch.status && (BLOCKING_STATUSES as readonly string[]).includes(patch.status);
-      const alreadyBlocking = (BLOCKING_STATUSES as readonly string[]).includes(current.status);
-      if (willBlock && !alreadyBlocking && current.blockStart && current.blockEnd && !override) {
-        await assertSlotFree(tx, { blockStart: current.blockStart, blockEnd: current.blockEnd }, new Date(), id);
+      const target = TARGET[input.action];
+      if (target) {
+        if (!TRANSITIONS[current.status as BookingStatus]?.includes(target)) {
+          throw new ActionError(`A ${current.status} booking cannot be marked ${target}.`, 409);
+        }
+        if (target === "completed" && current.endsAt && current.endsAt > now) {
+          throw new ActionError("This event hasn't finished yet — mark it completed after the event.", 409);
+        }
+        if (target === "confirmed") {
+          if (!current.blockStart || !current.blockEnd) throw new ActionError("This booking has no time range to reserve.");
+          if (!("override" in input && input.override)) {
+            await assertSlotFree(tx, { blockStart: current.blockStart, blockEnd: current.blockEnd }, now, id);
+          }
+        }
+        const reason = "reason" in input ? input.reason : undefined;
+        const updated = await tx.booking.update({
+          where: { id },
+          data: { status: target, holdExpiresAt: null, heldBy: null }
+        });
+        const overrideNote = "override" in input && input.override ? " (availability override)" : "";
+        await logBookingEvent(tx, id, `status:${target}`, `${current.status} → ${target}${overrideNote}${reason ? ` — ${reason}` : ""}`, actor);
+        return { booking: updated, previous: current };
       }
 
-      const data: typeof patch & { holdExpiresAt?: null } = { ...patch };
-      // Once staff decide, the temporary hold no longer applies.
-      if (patch.status && patch.status !== "pending") data.holdExpiresAt = null;
-      if (override && willBlock) {
-        const stamp = `[${new Date().toISOString()}] Conflict override by ${gate.user.primaryEmailAddress?.emailAddress ?? gate.userId}`;
-        data.notes = [current.notes, patch.notes, stamp].filter(Boolean).join("\n");
+      if (input.action === "hold") {
+        if (current.status !== "pending") throw new ActionError("Only pending requests can be held.", 409);
+        if (!current.blockStart || !current.blockEnd) throw new ActionError("This booking has no time range to hold.");
+        await assertSlotFree(tx, { blockStart: current.blockStart, blockEnd: current.blockEnd }, now, id);
+        const until = holdExpiry(input.hours ?? settings.holds.defaultHours, now);
+        const updated = await tx.booking.update({ where: { id }, data: { holdExpiresAt: until, heldBy: actor } });
+        await logBookingEvent(tx, id, "hold", `Temporary hold until ${formatInstant(until)}`, actor);
+        return { booking: updated, previous: current };
       }
-      return tx.booking.update({ where: { id }, data });
+
+      if (input.action === "release_hold") {
+        if (!isHeld(current, now)) throw new ActionError("There is no active hold on this booking.", 409);
+        const updated = await tx.booking.update({ where: { id }, data: { holdExpiresAt: null, heldBy: null } });
+        await logBookingEvent(tx, id, "hold_released", "Hold released", actor);
+        return { booking: updated, previous: current };
+      }
+
+      if (input.action === "set_quote") {
+        if (input.advanceAmount > input.quotedAmount) throw new ActionError("The advance cannot be more than the total.");
+        if (current.status === "declined" || current.status === "cancelled") {
+          throw new ActionError("This booking is closed.", 409);
+        }
+        const paymentStatus =
+          current.paymentStatus === "paid" || current.paymentStatus === "submitted" || current.paymentStatus === "refunded"
+            ? current.paymentStatus
+            : input.advanceAmount > 0
+              ? "awaiting"
+              : "not_requested";
+        const updated = await tx.booking.update({
+          where: { id },
+          data: { quotedAmount: input.quotedAmount, advanceAmount: input.advanceAmount, paymentStatus }
+        });
+        await logBookingEvent(
+          tx,
+          id,
+          "quote",
+          `Quote ${formatPkr(input.quotedAmount)}, advance ${formatPkr(input.advanceAmount)}`,
+          actor
+        );
+        return { booking: updated, previous: current };
+      }
+
+      if (input.action !== "note") throw new ActionError("Unknown action");
+      await logBookingEvent(tx, id, "note", input.note, actor);
+      return { booking: current, previous: current };
     });
-    if (!booking) return NextResponse.json({ ok: false, error: "Booking not found" }, { status: 404 });
+
+    if (TARGET[input.action]) {
+      await notifyStatusChange(booking, booking.status, "reason" in input ? input.reason : undefined).catch((e) =>
+        console.error("[admin] notify failed", e)
+      );
+    } else if (input.action === "hold") {
+      await notifyHoldPlaced(booking).catch((e) => console.error("[admin] notify failed", e));
+    } else if (
+      input.action === "set_quote" &&
+      booking.advanceAmount &&
+      booking.paymentStatus === "awaiting" &&
+      previous.advanceAmount !== booking.advanceAmount
+    ) {
+      await notifyAdvanceRequested(booking).catch((e) => console.error("[admin] notify failed", e));
+    }
     return NextResponse.json({ ok: true, booking });
   } catch (e) {
     if (e instanceof SlotUnavailableError) {
@@ -60,12 +148,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         {
           ok: false,
           code: "slot_conflict",
-          error: "Another confirmed or held booking overlaps this time. Decline one, or confirm with override if a second crew is available."
+          error:
+            "Another confirmed booking or active hold overlaps this time. Decline or move one of them, or confirm with override if a second crew is available."
         },
         { status: 409 }
       );
     }
-    console.error("admin booking update failed", e);
-    return NextResponse.json({ ok: false, error: "Update failed" }, { status: 500 });
+    if (e instanceof ActionError) return NextResponse.json({ ok: false, error: e.message }, { status: e.status });
+    console.error("[admin] booking action failed", e);
+    return NextResponse.json({ ok: false, error: "Action failed" }, { status: 500 });
   }
 }

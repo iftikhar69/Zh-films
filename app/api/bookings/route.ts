@@ -6,13 +6,14 @@ import { clerkConfigured } from "@/lib/auth";
 import { auth } from "@clerk/nextjs/server";
 import {
   BOOKING_TIMEZONE,
-  PENDING_HOLD_HOURS,
   SERVICES,
   SERVICE_TYPES,
   TEAM_ID,
-  holdExpiry,
   resolveSlot
 } from "@/lib/booking-rules";
+import { randomBytes } from "node:crypto";
+import { logBookingEvent } from "@/lib/booking-events";
+import { notifyNewRequest } from "@/lib/notify";
 import { SlotUnavailableError, assertSlotFree, busyRangesForDate, withScheduleLock } from "@/lib/booking-availability";
 
 const schema = z.object({
@@ -60,7 +61,8 @@ function confirmation(booking: BookingRow) {
       timeRange,
       holdUntil
     }),
-    note: `Request received — not yet confirmed. Your time is held for ${PENDING_HOLD_HOURS} hours while we review it.`
+    note: "Request received — pending review. This is not yet a confirmed booking.",
+    statusUrl: booking.accessToken ? `/booking/${booking.confirmationCode}?t=${booking.accessToken}` : undefined
   };
 }
 
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
       }
       const now = new Date();
       await assertSlotFree(tx, slot, now);
-      return tx.booking.create({
+      const created = await tx.booking.create({
         data: {
           confirmationCode: confirmationCode(),
           names: body.names,
@@ -113,7 +115,7 @@ export async function POST(req: Request) {
           blockStart: slot.blockStart,
           blockEnd: slot.blockEnd,
           teamId: TEAM_ID,
-          holdExpiresAt: holdExpiry(now),
+          accessToken: randomBytes(24).toString("base64url"),
           coverage: body.coverage,
           deliverables: body.deliverables,
           references: body.references ?? "",
@@ -124,7 +126,11 @@ export async function POST(req: Request) {
           idempotencyKey: body.idempotencyKey
         }
       });
+      await logBookingEvent(tx, created.id, "created", "Request submitted by customer", clerkUserId ? `user:${clerkUserId}` : "public");
+      return created;
     });
+    // Emails are deduplicated, so a retried request never notifies twice.
+    await notifyNewRequest(booking).catch((e) => console.error("[booking] notify failed", e));
     return NextResponse.json(confirmation(booking));
   } catch (e) {
     if (e instanceof SlotUnavailableError) {

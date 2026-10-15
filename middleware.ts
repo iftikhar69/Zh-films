@@ -3,11 +3,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 const isProtected = createRouteMatcher(["/admin(.*)"]);
+const isAdminApi = createRouteMatcher(["/api/admin(.*)"]);
 const hasClerk =
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) &&
   Boolean(process.env.CLERK_SECRET_KEY);
 
 const clerkHandler = clerkMiddleware(async (auth, req) => {
+  if (isAdminApi(req)) {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 });
+    return;
+  }
   if (isProtected(req)) {
     const signIn = new URL("/sign-in", req.url);
     signIn.searchParams.set("redirect_url", req.nextUrl.pathname);

@@ -94,9 +94,15 @@ model Booking {
   blockStart       DateTime?
   blockEnd         DateTime?
   teamId           String   @default("film-family")
-  /// A pending request blocks its slot only until this time.
+  /// Set only by staff: a pending request blocks its slot until this time.
   holdExpiresAt    DateTime?
-  /// pending | confirmed | in_production | delivered | cancelled | declined
+  heldBy           String?
+  /// Agreed total and required advance, in PKR. Set by staff.
+  quotedAmount     Int?
+  advanceAmount    Int?
+  /// Secret for the customer's private booking link (emails), compared server-side.
+  accessToken      String?  @unique
+  /// pending | confirmed | completed | declined | cancelled
   status           String   @default("pending")
   /// Set by staff only: not_requested | awaiting | paid | refunded
   paymentStatus    String   @default("not_requested")
@@ -106,7 +112,72 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now()) @updatedAt
 
+  payments         Payment[]
+  events           BookingEvent[]
+
   @@index([teamId, blockStart, blockEnd])
+  @@index([status, createdAt])
+}
+
+/// A payment the customer reports. Never "verified" until staff check the real account.
+model Payment {
+  id              String    @id @default(cuid())
+  bookingId       String
+  booking         Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  /// easypaisa | bank
+  method          String
+  amount          Int
+  reference       String
+  payerName       String    @default("")
+  /// Path under storage/receipts (outside /public); served only to admins.
+  receiptPath     String?
+  receiptMime     String?
+  /// submitted | verified | rejected
+  status          String    @default("submitted")
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([bookingId])
+}
+
+/// Audit trail for every status, hold, quote and payment change.
+model BookingEvent {
+  id        String   @id @default(cuid())
+  bookingId String
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  actor     String
+  createdAt DateTime @default(now())
+
+  @@index([bookingId, createdAt])
+}
+
+/// Owner-editable settings (payment instructions, policies). JSON value per key.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+}
+
+/// Every email attempt. `dedupeKey` makes reminders and notices send at most once.
+model EmailLog {
+  id        String   @id @default(cuid())
+  dedupeKey String   @unique
+  kind      String
+  to        String
+  subject   String
+  bookingId String?
+  /// sent | failed | skipped (provider not configured)
+  status    String
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// One row per production team. Bumped as the first write of every booking transaction so
