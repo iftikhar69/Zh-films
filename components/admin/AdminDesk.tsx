@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  BOOKING_STATUSES,
+  PAYMENT_STATUSES,
+  bookingStatusLabel,
+  paymentStatusLabel
+} from "@/lib/booking-status";
 
 type Booking = {
   id: string;
@@ -14,7 +21,69 @@ type Booking = {
   phone: string;
   coverage: string;
   status: string;
+  paymentStatus: string;
 };
+
+function BookingControls({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+
+  async function update(patch: Partial<Pick<Booking, "status" | "paymentStatus">>) {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch)
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "Update failed");
+      toast.success(`${booking.confirmationCode} updated`);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const selectClass =
+    "w-full rounded-lg border border-white/10 bg-black/60 px-2 py-1.5 text-xs text-zinc-200 disabled:opacity-50";
+
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-2">
+      <label className="space-y-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+        <span>Status</span>
+        <select
+          className={selectClass}
+          disabled={saving}
+          value={booking.status}
+          onChange={(e) => update({ status: e.target.value })}
+        >
+          {BOOKING_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {bookingStatusLabel(s)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="space-y-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+        <span>Payment</span>
+        <select
+          className={selectClass}
+          disabled={saving}
+          value={booking.paymentStatus}
+          onChange={(e) => update({ paymentStatus: e.target.value })}
+        >
+          {PAYMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {paymentStatusLabel(s)}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
+}
 
 type Overview = {
   ok: boolean;
@@ -137,7 +206,7 @@ export function AdminDesk() {
                     <p className="mt-2 text-xs text-zinc-300">
                       {b.email} · {b.phone}
                     </p>
-                    <p className="mt-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500">{b.status}</p>
+                    <BookingControls booking={b} onSaved={() => void load()} />
                   </article>
                 ))}
               </div>
