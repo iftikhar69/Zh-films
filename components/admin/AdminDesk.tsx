@@ -3,14 +3,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import {
-  BOOKING_STATUSES,
-  PAYMENT_STATUSES,
-  bookingStatusLabel,
-  paymentStatusLabel
-} from "@/lib/booking-status";
-import { SERVICES } from "@/lib/booking-rules";
 
 type Booking = {
   id: string;
@@ -29,74 +21,6 @@ type Booking = {
   holdExpiresAt: string | null;
 };
 
-function BookingControls({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
-  const [saving, setSaving] = useState(false);
-
-  async function update(patch: Partial<Pick<Booking, "status" | "paymentStatus">> & { override?: boolean }) {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/bookings/${booking.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch)
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
-      if (res.status === 409 && json.code === "slot_conflict") {
-        toast.error(json.error, {
-          duration: 12000,
-          action: { label: "Confirm anyway", onClick: () => void update({ ...patch, override: true }) }
-        });
-        return;
-      }
-      if (!res.ok || !json.ok) throw new Error(json.error ?? "Update failed");
-      toast.success(`${booking.confirmationCode} updated`);
-      onSaved();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Update failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const selectClass =
-    "w-full rounded-lg border border-white/10 bg-black/60 px-2 py-1.5 text-xs text-zinc-200 disabled:opacity-50";
-
-  return (
-    <div className="mt-3 grid grid-cols-2 gap-2">
-      <label className="space-y-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-        <span>Status</span>
-        <select
-          className={selectClass}
-          disabled={saving}
-          value={booking.status}
-          onChange={(e) => update({ status: e.target.value })}
-        >
-          {BOOKING_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {bookingStatusLabel(s)}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="space-y-1 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-        <span>Payment</span>
-        <select
-          className={selectClass}
-          disabled={saving}
-          value={booking.paymentStatus}
-          onChange={(e) => update({ paymentStatus: e.target.value })}
-        >
-          {PAYMENT_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {paymentStatusLabel(s)}
-            </option>
-          ))}
-        </select>
-      </label>
-    </div>
-  );
-}
-
 type Overview = {
   ok: boolean;
   error?: string;
@@ -110,7 +34,7 @@ type Overview = {
 
 export function AdminDesk() {
   const [data, setData] = useState<Overview | null>(null);
-  const [tab, setTab] = useState<"bookings" | "hires" | "rentals" | "sells">("bookings");
+  const [tab, setTab] = useState<"hires" | "rentals" | "sells">("hires");
   const [error, setError] = useState<string | null>(null);
 
   async function load() {
@@ -154,13 +78,13 @@ export function AdminDesk() {
   const dates = Object.keys(data.bookingsByDate).sort();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
+    <div>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-[0.4em] text-zh-gold/80">Admin · Production office</p>
-          <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Call Sheet Board</h1>
+          <p className="text-xs uppercase tracking-[0.4em] text-zh-gold/80">Enquiries</p>
+          <h1 className="mt-3 font-serif text-3xl text-white">Crew, rental &amp; sell leads</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Same-day clients stay separate. Bookings never block the calendar for others.
+            Booking requests live under Bookings.
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()}>
@@ -168,9 +92,8 @@ export function AdminDesk() {
         </Button>
       </header>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-8 grid grid-cols-3 gap-3">
         {[
-          ["Bookings", data.counts.bookings],
           ["Hires", data.counts.hires],
           ["Rentals", data.counts.rentals],
           ["Sell leads", data.counts.sells]
@@ -183,7 +106,7 @@ export function AdminDesk() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-2">
-        {(["bookings", "hires", "rentals", "sells"] as const).map((t) => (
+        {(["hires", "rentals", "sells"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -198,44 +121,6 @@ export function AdminDesk() {
       </div>
 
       <div className="mt-8 space-y-6">
-        {tab === "bookings" &&
-          dates.map((date) => (
-            <section key={date} className="rounded-2xl border border-white/10 bg-zinc-950/40 p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="font-mono text-sm text-zh-gold">{date}</h2>
-                <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                  {data.bookingsByDate[date].length} request(s)
-                </span>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                {data.bookingsByDate[date].map((b) => (
-                  <article key={b.id} className="rounded-xl border border-zh-gold/20 bg-black/40 p-4">
-                    <p className="font-mono text-[10px] text-zh-gold">{b.confirmationCode}</p>
-                    <p className="mt-1 font-serif text-lg text-white">{b.names}</p>
-                    <p className="mt-1 text-xs text-zh-gold/80">
-                      {SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType}
-                      {b.startTime && b.endTime ? ` · ${b.startTime}–${b.endTime} PKT` : ""}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {b.city} · {b.coverage}
-                    </p>
-                    {b.status === "pending" ? (
-                      <p className="mt-1 text-[11px] text-zinc-500">
-                        {b.holdExpiresAt && new Date(b.holdExpiresAt) > new Date()
-                          ? `Holding slot until ${new Date(b.holdExpiresAt).toLocaleString()}`
-                          : "Hold expired — slot not reserved"}
-                      </p>
-                    ) : null}
-                    <p className="mt-2 text-xs text-zinc-300">
-                      {b.email} · {b.phone}
-                    </p>
-                    <BookingControls booking={b} onSaved={() => void load()} />
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
-
         {tab === "hires" &&
           data.hires.map((h) => (
             <article key={h.id} className="rounded-xl border border-white/10 bg-zinc-950/50 p-4">
