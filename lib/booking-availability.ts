@@ -36,18 +36,42 @@ function blockingWhere(from: Date, to: Date, now: Date, excludeId?: string): Pri
  * SQLite takes the database write lock (and in Postgres a row lock), so a second request for
  * the same team waits until the first commits before it checks for conflicts.
  */
-export async function withScheduleLock<T>(fn: (tx: Tx) => Promise<T>) {
-  return prisma.$transaction(
-    async (tx) => {
-      await tx.scheduleLock.upsert({
-        where: { teamId: TEAM_ID },
-        create: { teamId: TEAM_ID, version: 1 },
-        update: { version: { increment: 1 } }
-      });
-      return fn(tx);
-    },
-    { maxWait: 10000, timeout: 15000 }
+export async function withScheduleLock<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+  // Queue in-process first so SQLite isn't flooded with writers waiting on its single lock;
+  // the database lock below still protects against other server processes.
+  const run = queue.then(() => lockedTransaction(fn));
+  queue = run.then(
+    () => undefined,
+    () => undefined
   );
+  return run;
+}
+
+let queue: Promise<unknown> = Promise.resolve();
+
+const RETRYABLE = new Set(["P1008", "P2034", "P1017"]);
+
+async function lockedTransaction<T>(fn: (tx: Tx) => Promise<T>, attempt = 0): Promise<T> {
+  try {
+    return await prisma.$transaction(
+      async (tx) => {
+        await tx.scheduleLock.upsert({
+          where: { teamId: TEAM_ID },
+          create: { teamId: TEAM_ID, version: 1 },
+          update: { version: { increment: 1 } }
+        });
+        return fn(tx);
+      },
+      { maxWait: 10000, timeout: 15000 }
+    );
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code && RETRYABLE.has(code) && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 150 * 2 ** attempt + Math.random() * 100));
+      return lockedTransaction(fn, attempt + 1);
+    }
+    throw e;
+  }
 }
 
 export async function assertSlotFree(tx: Tx, slot: Pick<Slot, "blockStart" | "blockEnd">, now = new Date(), excludeId?: string) {
