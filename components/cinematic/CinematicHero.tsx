@@ -1,4 +1,5 @@
 "use client";
+import { HERO_POSTER, HERO_VIDEO } from "@/lib/hero-media";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -10,9 +11,6 @@ import { useSoundscape } from "@/hooks/useSoundscape";
 import { useCinemaStore } from "@/stores/cinema-store";
 import { useEffect } from "react";
 
-const HERO_VIDEO =
-  process.env.NEXT_PUBLIC_HERO_VIDEO_URL ??
-  "/media/instagram/DdvcGIvhk3U.mp4";
 
 export function CinematicHero() {
   const soundEnabled = useCinemaStore((s) => s.soundEnabled);
@@ -30,6 +28,7 @@ export function CinematicHero() {
         <video
           className="h-full w-full scale-105 object-cover opacity-55"
           src={HERO_VIDEO}
+          poster={HERO_POSTER}
           autoPlay
           muted
           loop

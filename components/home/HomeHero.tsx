@@ -1,4 +1,5 @@
 "use client";
+import { HERO_POSTER, HERO_VIDEO } from "@/lib/hero-media";
 
 import Link from "next/link";
 import { useRef } from "react";
@@ -12,16 +13,12 @@ import { CountUp } from "@/components/motion/CountUp";
 import { scrollToTarget } from "@/components/motion/SmoothScroll";
 import { useUi } from "@/stores/ui-store";
 
-const HERO_VIDEO =
-  process.env.NEXT_PUBLIC_HERO_VIDEO_URL ??
-  "/media/instagram/DdvcGIvhk3U.mp4";
-
 const EASE = [0.16, 1, 0.3, 1] as const;
 
 export function HomeHero({
   reviewAverage,
   reviewCount,
-  reelCount
+  reelCount,
 }: {
   reviewAverage: number;
   reviewCount: number;
@@ -31,7 +28,10 @@ export function HomeHero({
   const ref = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   useInViewVideo(videoRef);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
+  const { scrollYProgress } = useScroll({
+    target: ref,
+    offset: ["start start", "end start"],
+  });
   const videoScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.35]);
   const videoOpacity = useTransform(scrollYProgress, [0, 0.8], [0.6, 0.1]);
   const contentY = useTransform(scrollYProgress, [0, 1], ["0%", "35%"]);
@@ -40,14 +40,35 @@ export function HomeHero({
   const stats = [
     { value: 7, suffix: "+", label: "Years behind the lens" },
     { value: reelCount * 14, suffix: "+", label: "Films delivered" },
-    { value: reviewAverage || 5, decimals: 1, suffix: "", label: `Rating · ${reviewCount} reviews`, star: true },
-    { value: 8, suffix: "", label: "Seats in the family" }
+    {
+      value: reviewAverage || 5,
+      decimals: 1,
+      suffix: "",
+      label: `Rating · ${reviewCount} reviews`,
+      star: true,
+    },
+    { value: 8, suffix: "", label: "Seats in the family" },
   ];
 
   return (
-    <section ref={ref} className="relative flex min-h-[100svh] flex-col overflow-hidden">
-      <motion.div className="absolute inset-0" style={{ scale: videoScale, opacity: videoOpacity }}>
-        <video ref={videoRef} className="h-full w-full object-cover" src={HERO_VIDEO} muted loop playsInline preload="metadata" />
+    <section
+      ref={ref}
+      className="relative flex min-h-[100svh] flex-col overflow-hidden"
+    >
+      <motion.div
+        className="absolute inset-0"
+        style={{ scale: videoScale, opacity: videoOpacity }}
+      >
+        <video
+          ref={videoRef}
+          className="h-full w-full object-cover"
+          src={HERO_VIDEO}
+          poster={HERO_POSTER}
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        />
       </motion.div>
       <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/30 to-zh-black" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(200,169,106,0.18),transparent_60%)]" />
@@ -89,9 +110,19 @@ export function HomeHero({
         </motion.p>
 
         <h1 className="font-display text-[clamp(3.2rem,12vw,10.5rem)] font-bold uppercase leading-[0.86] tracking-[-0.03em] text-white">
-          <SplitText text="We film" delay={0.55} play={ready} className="block" />
+          <SplitText
+            text="We film"
+            delay={0.55}
+            play={ready}
+            className="block"
+          />
           <span className="block">
-            <SplitText text="feelings." delay={0.8} play={ready} charClassName="zh-text-shimmer" />
+            <SplitText
+              text="feelings."
+              delay={0.8}
+              play={ready}
+              charClassName="zh-text-shimmer"
+            />
           </span>
         </h1>
 
@@ -102,8 +133,9 @@ export function HomeHero({
             transition={{ delay: 1.2, duration: 0.9, ease: EASE }}
             className="max-w-md text-balance text-sm leading-relaxed text-zinc-300 sm:text-base"
           >
-            Wedding epics, AKU ceremonies, pre-events and brand films from Lahore — shot like cinema, cut like a trailer,
-            and remembered for a lifetime.
+            Wedding epics, AKU ceremonies, pre-events and brand films from
+            Lahore — shot like cinema, cut like a trailer, and remembered for a
+            lifetime.
           </motion.p>
 
           <motion.div
@@ -122,7 +154,9 @@ export function HomeHero({
                   <span className="absolute inset-0 animate-ping rounded-full bg-white/40" />
                   <Play className="relative ml-0.5 h-4 w-4 fill-black" />
                 </span>
-                <span className="text-xs font-semibold uppercase tracking-[0.25em] text-white">Watch the reels</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.25em] text-white">
+                  Watch the reels
+                </span>
               </Link>
             </Magnetic>
             <Magnetic>
@@ -147,12 +181,23 @@ export function HomeHero({
       >
         <div className="mx-auto grid max-w-7xl grid-cols-2 px-4 sm:px-6 lg:grid-cols-[repeat(4,1fr)_auto]">
           {stats.map((s, i) => (
-            <div key={s.label} className={`py-5 ${i % 2 ? "pl-5" : ""} ${i > 0 ? "lg:border-l lg:border-white/10 lg:pl-6" : ""}`}>
+            <div
+              key={s.label}
+              className={`py-5 ${i % 2 ? "pl-5" : ""} ${i > 0 ? "lg:border-l lg:border-white/10 lg:pl-6" : ""}`}
+            >
               <div className="flex items-center gap-1.5 font-display text-2xl font-bold text-white sm:text-3xl">
-                <CountUp to={s.value} decimals={s.decimals ?? 0} suffix={s.suffix} />
-                {s.star ? <Star className="h-5 w-5 fill-zh-gold text-zh-gold" /> : null}
+                <CountUp
+                  to={s.value}
+                  decimals={s.decimals ?? 0}
+                  suffix={s.suffix}
+                />
+                {s.star ? (
+                  <Star className="h-5 w-5 fill-zh-gold text-zh-gold" />
+                ) : null}
               </div>
-              <p className="mt-1 text-[10px] uppercase tracking-[0.25em] text-zinc-500">{s.label}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+                {s.label}
+              </p>
             </div>
           ))}
           <button
@@ -161,7 +206,10 @@ export function HomeHero({
             className="hidden items-center gap-3 pl-6 text-[10px] uppercase tracking-[0.3em] text-zinc-400 hover:text-zh-gold lg:flex"
           >
             Scroll
-            <motion.span animate={{ y: [0, 6, 0] }} transition={{ duration: 1.6, repeat: Infinity }}>
+            <motion.span
+              animate={{ y: [0, 6, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+            >
               <ArrowDown className="h-4 w-4" />
             </motion.span>
           </button>
