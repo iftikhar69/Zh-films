@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 import { useFavoriteCount } from "@/stores/favorites-store";
+import { bookingStatusLabel, paymentStatusLabel } from "@/lib/booking-status";
 
 function FavoritesShortcut() {
   const count = useFavoriteCount();
@@ -33,7 +34,11 @@ type Payload = {
     names: string;
     eventDate: string;
     city: string;
+    coverage: string;
+    deliverables: string;
     status: string;
+    paymentStatus: string;
+    updatedAt: string;
   }>;
   hires?: Array<{ crewName: string; eventDate: string; status: string }>;
   rentals?: Array<{ gearName: string; startDate: string; status: string }>;
@@ -61,7 +66,7 @@ export default function AccountPage() {
         <h1 className="mt-3 font-serif text-3xl text-white">Sign in to see your board</h1>
         <p className="mt-3 text-sm text-zinc-400">{data.error}</p>
         <Button className="mt-6" asChild>
-          <Link href="/sign-in">Sign in</Link>
+          <Link href="/sign-in?redirect_url=%2Faccount">Sign in</Link>
         </Button>
         <FavoritesShortcut />
       </div>
@@ -81,14 +86,33 @@ export default function AccountPage() {
       <section className="mt-10 space-y-3">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Bookings</h2>
         {(data.bookings ?? []).length === 0 ? (
-          <p className="text-sm text-zinc-500">No date locks yet.</p>
+          <p className="text-sm text-zinc-500">
+            No bookings yet. Bookings made with your verified email appear here automatically.{" "}
+            <Link href="/book" className="text-zh-gold">
+              Book a date →
+            </Link>
+          </p>
         ) : (
           data.bookings?.map((b) => (
             <article key={b.confirmationCode} className="zh-callsheet rounded-xl border border-white/10 p-4">
               <p className="font-mono text-xs text-zh-gold">{b.confirmationCode}</p>
               <p className="font-serif text-lg text-white">{b.names}</p>
               <p className="text-sm text-zinc-400">
-                {b.eventDate} · {b.city} · {b.status}
+                {b.eventDate} · {b.city}
+              </p>
+              <p className="mt-1 text-xs text-zinc-500">
+                {b.coverage} · {b.deliverables}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.2em]">
+                <span className="rounded-full border border-zh-gold/30 px-3 py-1 text-zh-gold">
+                  {bookingStatusLabel(b.status)}
+                </span>
+                <span className="rounded-full border border-white/10 px-3 py-1 text-zinc-300">
+                  {paymentStatusLabel(b.paymentStatus)}
+                </span>
+              </div>
+              <p className="mt-2 text-[11px] text-zinc-600">
+                Updated {new Date(b.updatedAt).toLocaleDateString()}
               </p>
             </article>
           ))

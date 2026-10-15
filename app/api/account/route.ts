@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clerkConfigured } from "@/lib/auth";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 
 export async function GET() {
   if (!clerkConfigured()) {
@@ -12,10 +12,34 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 });
   }
 
+  const user = await currentUser();
+  const verifiedEmails = (user?.emailAddresses ?? [])
+    .filter((e) => e.verification?.status === "verified")
+    .map((e) => e.emailAddress.toLowerCase());
+  if (verifiedEmails.length) {
+    // Bookings made before signing in are attached only to a verified email the user owns.
+    await prisma.booking.updateMany({
+      where: { clerkUserId: null, email: { in: verifiedEmails } },
+      data: { clerkUserId: userId }
+    });
+  }
+
   const [bookings, hires, rentals, sells] = await Promise.all([
     prisma.booking.findMany({
       where: { clerkUserId: userId },
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
+      select: {
+        confirmationCode: true,
+        names: true,
+        eventDate: true,
+        city: true,
+        coverage: true,
+        deliverables: true,
+        status: true,
+        paymentStatus: true,
+        createdAt: true,
+        updatedAt: true
+      }
     }),
     prisma.hireRequest.findMany({
       where: { clerkUserId: userId },
