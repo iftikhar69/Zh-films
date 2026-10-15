@@ -82,4 +82,26 @@ cursor.
 ```bash
 docker compose up --build
 ```
-# Zh-films
+
+## Public site vs. private areas
+
+- **Public pages** (home, reels, gallery, services, booking) never call private APIs. Clerk's client code, the search palette and the newsletter popup are loaded only when needed (`components/auth/AuthControls.tsx`, `components/search/SearchLauncher.tsx`, `components/marketing/LazyDirectorsCutClub.tsx`).
+- **Client area** (`/account`): signed-in clients see their bookings with booking status and payment status. Bookings made before signing up are attached automatically when the booking email matches a **verified** email on their Clerk account.
+- **Staff area** (`/admin`): checked on the server with `requireAdmin()` in `lib/auth.ts` — Clerk `publicMetadata.role = "admin"` (only settable from the Clerk dashboard or backend) or an email in `ADMIN_EMAILS`. Staff update booking and payment status through `PATCH /api/admin/bookings/:id`.
+
+## Booking flow
+
+`/book` works without an account. Drafts are saved in the browser session (so a trip to sign in does not lose them), `?service=` pre-fills coverage, and every submission carries an idempotency key so double clicks or retries never create duplicate bookings.
+
+Booking statuses: `pending → confirmed → in_production → delivered` (or `cancelled`).
+
+## Payments
+
+There is **no online payment integration yet**, on purpose. `Booking.paymentStatus` (`not_requested`, `awaiting`, `paid`, `refunded`) is set **only by staff** after they confirm money has arrived, and clients see it read-only. Nothing on the client can mark a booking paid.
+
+Before adding online payments, pick a provider that supports merchants in Pakistan (Stripe does not onboard Pakistani businesses). Candidates to evaluate: Safepay, PayFast (PK), JazzCash or Easypaisa merchant APIs. Whichever you pick, payment must be confirmed by a server-side webhook or verification call, which then moves `paymentStatus` to `paid`, and the SDK must load only on the payment route.
+
+## Hero video
+
+The temporary hero is a ZH Films Instagram reel. To replace it, overwrite `public/media/hero.mp4` (muted, H.264, `-movflags +faststart`) and the poster `public/media/instagram/DdvcGIvhk3U.jpg`, or set `NEXT_PUBLIC_HERO_VIDEO_URL` / `NEXT_PUBLIC_HERO_POSTER_URL` (see `lib/hero-media.ts`).
+
