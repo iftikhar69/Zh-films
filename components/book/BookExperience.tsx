@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSoundscape } from "@/hooks/useSoundscape";
@@ -9,6 +10,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 const steps = ["Scene", "Lens", "Lock"] as const;
+const DRAFT_KEY = "zh-booking-draft";
 
 const bookingSchema = z.object({
   names: z.string().min(2, "Add both names"),
@@ -34,6 +36,9 @@ export function BookExperience() {
   const [datePulse, setDatePulse] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmPayload | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const inFlight = useRef(false);
+  const idempotencyKey = useRef<string | null>(null);
   const { shutter, filmWind, applause } = useSoundscape();
   const {
     register,
@@ -61,9 +66,33 @@ export function BookExperience() {
   const eventDate = watch("eventDate");
 
   useEffect(() => {
-    const refs = new URLSearchParams(window.location.search).get("references");
+    try {
+      const draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? "null") as
+        | { values: Partial<BookingValues>; step: number }
+        | null;
+      if (draft) {
+        for (const [k, v] of Object.entries(draft.values)) {
+          if (typeof v === "string") setValue(k as keyof BookingValues, v);
+        }
+        setStep(Math.min(Math.max(draft.step, 0), steps.length - 1));
+      }
+    } catch {
+      sessionStorage.removeItem(DRAFT_KEY);
+    }
+    const params = new URLSearchParams(window.location.search);
+    const refs = params.get("references");
     if (refs) setValue("references", refs.slice(0, 500));
-  }, [setValue]);
+    const service = params.get("service");
+    if (service && !getValues("coverage")) setValue("coverage", service.slice(0, 120));
+  }, [setValue, getValues]);
+
+  useEffect(() => {
+    const sub = watch((values) => {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values, step }));
+    });
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ values: getValues(), step }));
+    return () => sub.unsubscribe();
+  }, [watch, getValues, step]);
 
   useEffect(() => {
     if (!eventDate) {
@@ -98,11 +127,19 @@ export function BookExperience() {
             {confirm.confirmationMessage}
           </pre>
           <p className="mt-4 text-sm text-zh-gold/90">{confirm.note}</p>
+          <p className="mt-4 text-xs text-zinc-400">
+            Track this booking under{" "}
+            <Link href="/account" className="text-zh-gold underline-offset-4 hover:underline">
+              your account
+            </Link>{" "}
+            by signing in with the same email address.
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button
               type="button"
               onClick={() => {
                 setConfirm(null);
+                sessionStorage.removeItem(DRAFT_KEY);
                 reset();
                 setStep(0);
                 shutter();
@@ -159,22 +196,33 @@ export function BookExperience() {
             return;
           }
           const ok = await trigger(undefined, { shouldFocus: true });
-          if (!ok) return;
+          if (!ok || inFlight.current) return;
+          inFlight.current = true;
+          idempotencyKey.current ??= crypto.randomUUID();
           setSubmitting(true);
+          setSubmitError(null);
           try {
-            const v = getValues();
             const res = await fetch("/api/bookings", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(v)
+              body: JSON.stringify({ ...getValues(), idempotencyKey: idempotencyKey.current })
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
             if (!res.ok || !data.ok) throw new Error(data.error || "Booking failed");
             applause();
+            sessionStorage.removeItem(DRAFT_KEY);
+            idempotencyKey.current = null;
             setConfirm(data as ConfirmPayload);
           } catch (err) {
-            alert(err instanceof Error ? err.message : "Could not lock scene");
+            setSubmitError(
+              err instanceof TypeError
+                ? "You appear to be offline. Your details are saved — try again when you're connected."
+                : err instanceof Error
+                  ? err.message
+                  : "Could not send your booking. Please try again."
+            );
           } finally {
+            inFlight.current = false;
             setSubmitting(false);
           }
         }}
@@ -217,6 +265,12 @@ export function BookExperience() {
           </>
         )}
 
+        {submitError ? (
+          <p role="alert" className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            {submitError}
+          </p>
+        ) : null}
+
         <div className="flex justify-between gap-3 pt-2">
           <Button
             type="button"
@@ -234,6 +288,13 @@ export function BookExperience() {
           </Button>
         </div>
       </form>
+      <p className="mt-4 text-xs text-zinc-500">
+        No account needed to book. Want to track status and payments?{" "}
+        <Link href="/sign-in?redirect_url=%2Fbook" className="text-zh-gold underline-offset-4 hover:underline">
+          Sign in
+        </Link>{" "}
+        — your details are kept and you will come straight back here.
+      </p>
     </div>
   );
 }

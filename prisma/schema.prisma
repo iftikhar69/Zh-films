@@ -82,10 +82,15 @@ model Booking {
   references       String   @default("")
   email            String
   phone            String
+  /// pending | confirmed | in_production | delivered | cancelled
   status           String   @default("pending")
+  /// Set by staff only: not_requested | awaiting | paid | refunded
+  paymentStatus    String   @default("not_requested")
+  idempotencyKey   String?  @unique
   clerkUserId      String?
   notes            String?
   createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now()) @updatedAt
 }
 
 model HireRequest {

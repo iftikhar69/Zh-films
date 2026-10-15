@@ -13,12 +13,15 @@ const schema = z.object({
   deliverables: z.string().min(3),
   references: z.string().optional().default(""),
   email: z.string().email(),
-  phone: z.string().min(6)
+  phone: z.string().min(6),
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
+  let idempotencyKey: string | undefined;
   try {
     const body = schema.parse(await req.json());
+    idempotencyKey = body.idempotencyKey;
     let clerkUserId: string | undefined;
     if (clerkConfigured()) {
       try {
@@ -27,6 +30,13 @@ export async function POST(req: Request) {
       } catch {
         /* public booking allowed */
       }
+    }
+
+    if (body.idempotencyKey) {
+      const existing = await prisma.booking.findUnique({
+        where: { idempotencyKey: body.idempotencyKey },
+      });
+      if (existing) return NextResponse.json(await confirmation(existing));
     }
 
     const code = confirmationCode();
@@ -39,50 +49,81 @@ export async function POST(req: Request) {
         coverage: body.coverage,
         deliverables: body.deliverables,
         references: body.references ?? "",
-        email: body.email,
+        email: body.email.trim().toLowerCase(),
         phone: body.phone,
         clerkUserId,
-        status: "pending"
-      }
-    });
-
-    const sameDayCount = await prisma.booking.count({
-      where: { eventDate: body.eventDate }
-    });
-
-    const message = formatCallSheet({
-      code: booking.confirmationCode,
-      names: booking.names,
-      eventDate: booking.eventDate,
-      city: booking.city
-    });
-
-    return NextResponse.json({
-      ok: true,
-      booking: {
-        id: booking.id,
-        confirmationCode: booking.confirmationCode,
-        eventDate: booking.eventDate,
-        names: booking.names
+        status: "pending",
+        idempotencyKey: body.idempotencyKey,
       },
-      confirmationMessage: message,
-      sameDayBookings: sameDayCount,
-      note:
-        sameDayCount > 1
-          ? `This date still has room — ${sameDayCount} separate client requests are on the board for ${body.eventDate}.`
-          : `You are the first call-sheet entry for ${body.eventDate}. The day remains available for other clients.`
     });
+
+    return NextResponse.json(await confirmation(booking));
   } catch (e) {
-    const msg = e instanceof Error ? e.message : "Invalid booking";
-    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+    if (idempotencyKey && (e as { code?: string })?.code === "P2002") {
+      const existing = await prisma.booking.findUnique({ where: { idempotencyKey } });
+      if (existing) return NextResponse.json(await confirmation(existing));
+    }
+    if (e instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: e.issues
+            .map((i) => `${i.path.join(".")}: ${i.message}`)
+            .join("; "),
+        },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json(
+      { ok: false, error: "Could not save the booking. Please try again." },
+      { status: 500 },
+    );
   }
+}
+
+async function confirmation(booking: {
+  id: string;
+  confirmationCode: string;
+  names: string;
+  eventDate: string;
+  city: string;
+}) {
+  const sameDayCount = await prisma.booking.count({
+    where: { eventDate: booking.eventDate },
+  });
+
+  const message = formatCallSheet({
+    code: booking.confirmationCode,
+    names: booking.names,
+    eventDate: booking.eventDate,
+    city: booking.city,
+  });
+
+  return {
+    ok: true,
+    booking: {
+      id: booking.id,
+      confirmationCode: booking.confirmationCode,
+      eventDate: booking.eventDate,
+      names: booking.names,
+    },
+    confirmationMessage: message,
+    sameDayBookings: sameDayCount,
+    note:
+      sameDayCount > 1
+        ? `This date still has room — ${sameDayCount} separate client requests are on the board for ${booking.eventDate}.`
+        : `You are the first call-sheet entry for ${booking.eventDate}. The day remains available for other clients.`,
+  };
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const date = searchParams.get("date");
   if (!date) {
-    return NextResponse.json({ ok: false, error: "date required" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "date required" },
+      { status: 400 },
+    );
   }
   const count = await prisma.booking.count({ where: { eventDate: date } });
   return NextResponse.json({
@@ -93,6 +134,6 @@ export async function GET(req: Request) {
     message:
       count === 0
         ? "This day is open on the ZH call sheet."
-        : `${count} client(s) already requested this day — it stays available; each booking is separate.`
+        : `${count} client(s) already requested this day — it stays available; each booking is separate.`,
   });
 }
