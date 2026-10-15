@@ -110,9 +110,12 @@ export default function AccountPage() {
                 <p className="mt-1 text-xs text-zinc-400">
                   {b.holdExpiresAt && new Date(b.holdExpiresAt) > new Date()
                     ? `Your time is held until ${new Date(b.holdExpiresAt).toLocaleString()} while we review it.`
-                    : "Hold expired — this time may be offered to others until a producer confirms with you."}
+                    : "Pending review — this date is not reserved until we confirm it with you."}
                 </p>
               ) : null}
+              <Link href={`/booking/${b.confirmationCode}`} className="mt-1 inline-block text-xs text-zh-gold">
+                View status &amp; payment details →
+              </Link>
               <p className="mt-1 text-xs text-zinc-500">
                 {b.coverage} · {b.deliverables}
               </p>

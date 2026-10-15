@@ -75,8 +75,6 @@ export function AdminDesk() {
     );
   }
 
-  const dates = Object.keys(data.bookingsByDate).sort();
-
   return (
     <div>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

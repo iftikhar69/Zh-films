@@ -12,7 +12,8 @@
     "db:seed": "prisma db seed",
     "test": "tsx --test tests/*.test.ts",
     "admin:grant": "tsx --env-file=.env scripts/grant-admin.ts",
-    "reminders": "tsx --env-file=.env scripts/run-reminders.ts"
+    "reminders": "tsx --env-file=.env scripts/run-reminders.ts",
+    "test:workflow": "tsx --test --experimental-test-module-mocks tests/workflow.integration.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

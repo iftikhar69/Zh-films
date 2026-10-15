@@ -33,6 +33,7 @@ type ConfirmPayload = {
   note: string;
   booking: { confirmationCode: string; eventDate: string; names: string };
   sameDayBookings: number;
+  statusUrl?: string;
 };
 
 export function BookExperience() {
@@ -142,15 +143,20 @@ export function BookExperience() {
     return (
       <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
         <div className="relative overflow-hidden rounded-3xl border border-zh-gold/40 bg-gradient-to-b from-zinc-950 via-black to-black p-8 shadow-[0_0_80px_rgba(200,169,106,0.15)]">
-          <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Request received · awaiting confirmation</p>
-          <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Your time is on hold</h1>
+          <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Request received · pending review</p>
+          <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">We have your request</h1>
           <p className="mt-2 font-mono text-sm text-zh-gold">{confirm.booking.confirmationCode}</p>
           <pre className="mt-6 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/50 p-5 font-sans text-sm leading-relaxed text-zinc-300">
             {confirm.confirmationMessage}
           </pre>
           <p className="mt-4 text-sm text-zh-gold/90">{confirm.note}</p>
+          {confirm.statusUrl ? (
+            <Button className="mt-6" asChild>
+              <Link href={confirm.statusUrl}>View booking status</Link>
+            </Button>
+          ) : null}
           <p className="mt-4 text-xs text-zinc-400">
-            Track this booking under{" "}
+            Keep the status link (we also email it to you), or track this booking under{" "}
             <Link href="/account" className="text-zh-gold underline-offset-4 hover:underline">
               your account
             </Link>{" "}
