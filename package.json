@@ -13,7 +13,8 @@
     "test": "tsx --test tests/*.test.ts",
     "admin:grant": "tsx --env-file=.env scripts/grant-admin.ts",
     "reminders": "tsx --env-file=.env scripts/run-reminders.ts",
-    "test:workflow": "tsx --test --experimental-test-module-mocks tests/workflow.integration.ts"
+    "test:workflow": "tsx --test --experimental-test-module-mocks tests/workflow.integration.ts",
+    "build:netlify": "prisma generate && prisma db push --skip-generate && prisma db seed && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

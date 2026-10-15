@@ -3,7 +3,10 @@ import path from "node:path";
 import { randomBytes } from "node:crypto";
 
 /** Outside /public — receipts are only ever streamed through an admin-checked route. */
-const ROOT = path.resolve(process.env.RECEIPTS_DIR || path.join(process.cwd(), "storage", "receipts"));
+const ROOT = path.resolve(
+  process.env.RECEIPTS_DIR ||
+    (process.env.AWS_LAMBDA_FUNCTION_NAME ? "/tmp/receipts" : path.join(process.cwd(), "storage", "receipts"))
+);
 
 export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 

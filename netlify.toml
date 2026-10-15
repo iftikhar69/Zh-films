@@ -1,0 +1,15 @@
+# Test/preview deploy. SQLite is seeded at build time and copied to /tmp at
+# runtime, so bookings made here are temporary. Use Postgres for production.
+[build]
+  command = "npm run build:netlify"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  DATABASE_URL = "file:./preview.db"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions]
+  included_files = ["prisma/preview.db", "node_modules/.prisma/client/*.node"]

@@ -414,47 +414,6 @@ async function main() {
 
   await prisma.gearItem.createMany({ data: gear });
 
-  // Sample multi-client same-day bookings for admin demo
-  await prisma.booking.createMany({
-    data: [
-      {
-        confirmationCode: "ZH-DEMO01",
-        names: "Noor & Ali",
-        city: "Lahore",
-        eventDate: "2026-12-12",
-        coverage: "Full wedding weekend",
-        deliverables: "Feature film + reels",
-        email: "noor@example.com",
-        phone: "+92 300 1111111",
-        status: "pending"
-      },
-      {
-        confirmationCode: "ZH-DEMO02",
-        names: "Sara & Hamza",
-        city: "Lahore",
-        eventDate: "2026-12-12",
-        coverage: "Walima only",
-        deliverables: "Vertical highlights",
-        email: "sara@example.com",
-        phone: "+92 300 2222222",
-        status: "pending"
-      }
-    ]
-  });
-
-  // Seed an "audience" so the Most Loved ranking has signal on a fresh install
-  const reels = await prisma.reel.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } });
-  const crewRows = await prisma.crewMember.findMany({ select: { id: true } });
-  const favs: { ownerId: string; itemType: string; itemId: string }[] = [];
-  reels.forEach((r, i) => {
-    const fans = Math.max(0, 14 - ((i * 5) % 15));
-    for (let f = 0; f < fans; f++) favs.push({ ownerId: `visitor:seed-${f}`, itemType: "reel", itemId: r.id });
-  });
-  crewRows.forEach((c, i) => {
-    for (let f = 0; f < 9 - i; f++) favs.push({ ownerId: `visitor:seed-${f}`, itemType: "crew", itemId: c.id });
-  });
-  await prisma.favorite.createMany({ data: favs });
-
   console.log("Film Family seed complete");
 }
 
