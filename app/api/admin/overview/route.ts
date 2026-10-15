@@ -9,7 +9,7 @@ export async function GET() {
   }
 
   const [bookings, hires, rentals, sells, reviews, favoriteCount] = await Promise.all([
-    prisma.booking.findMany({ orderBy: [{ eventDate: "asc" }, { createdAt: "desc" }] }),
+    prisma.booking.findMany({ orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }, { createdAt: "desc" }] }),
     prisma.hireRequest.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.rentalInquiry.findMany({ orderBy: { createdAt: "desc" } }),
     prisma.sellInquiry.findMany({ orderBy: { createdAt: "desc" } }),

@@ -8,14 +8,18 @@ import { useSoundscape } from "@/hooks/useSoundscape";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { BOOKING_WINDOW, SERVICES, SERVICE_TYPES, todayIn, type ServiceType } from "@/lib/booking-rules";
 
 const steps = ["Scene", "Lens", "Lock"] as const;
 const DRAFT_KEY = "zh-booking-draft";
 
 const bookingSchema = z.object({
   names: z.string().min(2, "Add both names"),
-  city: z.string().min(2, "City is required"),
+  city: z.string().min(2, "Location is required"),
+  serviceType: z.enum(SERVICE_TYPES, { errorMap: () => ({ message: "Choose a service" }) }),
   eventDate: z.string().min(4, "Pick a date"),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Pick a start time"),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, "Pick an end time"),
   coverage: z.string().min(3, "Coverage is required"),
   deliverables: z.string().min(3, "Deliverables are required"),
   references: z.string().optional().default(""),
@@ -34,6 +38,7 @@ type ConfirmPayload = {
 export function BookExperience() {
   const [step, setStep] = useState(0);
   const [datePulse, setDatePulse] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmPayload | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -47,13 +52,17 @@ export function BookExperience() {
     formState: { errors },
     getValues,
     setValue,
+    setError,
     reset
   } = useForm<BookingValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       names: "",
-      city: "Lahore",
+      city: "",
+      serviceType: "wedding",
       eventDate: "",
+      startTime: SERVICES.wedding.defaultStart,
+      endTime: SERVICES.wedding.defaultEnd,
       coverage: "",
       deliverables: "",
       references: "",
@@ -64,6 +73,15 @@ export function BookExperience() {
   });
 
   const eventDate = watch("eventDate");
+  const [{ minDate, maxDate }] = useState(() => {
+    const today = todayIn();
+    const shift = (days: number) => {
+      const d = new Date(`${today}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    };
+    return { minDate: shift(BOOKING_WINDOW.minLeadDays), maxDate: shift(BOOKING_WINDOW.maxAdvanceDays) };
+  });
 
   useEffect(() => {
     try {
@@ -83,7 +101,11 @@ export function BookExperience() {
     const refs = params.get("references");
     if (refs) setValue("references", refs.slice(0, 500));
     const service = params.get("service");
-    if (service && !getValues("coverage")) setValue("coverage", service.slice(0, 120));
+    if (service && service in SERVICES) {
+      setValue("serviceType", service as ServiceType);
+      setValue("startTime", SERVICES[service as ServiceType].defaultStart);
+      setValue("endTime", SERVICES[service as ServiceType].defaultEnd);
+    } else if (service && !getValues("coverage")) setValue("coverage", service.slice(0, 120));
   }, [setValue, getValues]);
 
   useEffect(() => {
@@ -108,10 +130,10 @@ export function BookExperience() {
     return () => {
       cancelled = true;
     };
-  }, [eventDate]);
+  }, [eventDate, refreshKey]);
 
   const fieldsForStep = useMemo(() => {
-    if (step === 0) return ["names", "city", "eventDate"] as const;
+    if (step === 0) return ["names", "serviceType", "city", "eventDate", "startTime", "endTime"] as const;
     if (step === 1) return ["coverage", "deliverables", "references"] as const;
     return ["email", "phone"] as const;
   }, [step]);
@@ -120,8 +142,8 @@ export function BookExperience() {
     return (
       <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
         <div className="relative overflow-hidden rounded-3xl border border-zh-gold/40 bg-gradient-to-b from-zinc-950 via-black to-black p-8 shadow-[0_0_80px_rgba(200,169,106,0.15)]">
-          <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Call sheet locked</p>
-          <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Confirmation</h1>
+          <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Request received · awaiting confirmation</p>
+          <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Your time is on hold</h1>
           <p className="mt-2 font-mono text-sm text-zh-gold">{confirm.booking.confirmationCode}</p>
           <pre className="mt-6 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/50 p-5 font-sans text-sm leading-relaxed text-zinc-300">
             {confirm.confirmationMessage}
@@ -162,7 +184,8 @@ export function BookExperience() {
         <p className="text-xs uppercase tracking-[0.4em] text-zh-gold/80">Booking suite · Film Family</p>
         <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Book Your Film</h1>
         <p className="mt-3 text-sm text-zinc-400">
-          Pick a date — you get an instant call-sheet confirmation. Days stay open for multiple clients; admin sees each request separately.
+          Choose your service, date and time. You will see straight away whether the time is open; a producer then
+          confirms your booking with you.
         </p>
       </header>
 
@@ -208,6 +231,19 @@ export function BookExperience() {
               body: JSON.stringify({ ...getValues(), idempotencyKey: idempotencyKey.current })
             });
             const data = await res.json().catch(() => ({}));
+            if (res.status === 409 || (res.status === 400 && data.field && data.field in getValues())) {
+              const field = (data.field ?? "startTime") as keyof BookingValues;
+              setError(field, { message: data.error });
+              setStep(0);
+              if (res.status === 409) {
+                idempotencyKey.current = null;
+                setDatePulse(null);
+                setRefreshKey((k) => k + 1);
+              }
+              throw new Error(
+                res.status === 409 ? "That time was just taken. Choose another time or date on step 1." : data.error
+              );
+            }
             if (!res.ok || !data.ok) throw new Error(data.error || "Booking failed");
             applause();
             sessionStorage.removeItem(DRAFT_KEY);
@@ -230,20 +266,56 @@ export function BookExperience() {
         {step === 0 && (
           <>
             <Field label="Names" placeholder="Noor & Ali" error={errors.names?.message} {...register("names")} />
-            <Field label="Event city" placeholder="Lahore" error={errors.city?.message} {...register("city")} />
+            <label className="block space-y-2 text-xs uppercase tracking-[0.22em] text-zinc-400">
+              <span>Service</span>
+              <select
+                className="h-10 w-full rounded-md border border-white/10 bg-black/60 px-3 text-sm normal-case tracking-normal text-zinc-100"
+                {...register("serviceType", {
+                  onChange: (e) => {
+                    const svc = SERVICES[e.target.value as ServiceType];
+                    if (svc) {
+                      setValue("startTime", svc.defaultStart);
+                      setValue("endTime", svc.defaultEnd);
+                    }
+                  }
+                })}
+              >
+                {SERVICE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {SERVICES[t].label}
+                  </option>
+                ))}
+              </select>
+              {errors.serviceType ? (
+                <span className="text-[11px] normal-case tracking-normal text-red-400">{errors.serviceType.message}</span>
+              ) : null}
+            </label>
+            <Field
+              label="Event location (city / venue)"
+              placeholder="Karimabad, Hunza"
+              error={errors.city?.message}
+              {...register("city")}
+            />
             <Field
               label="Event date"
               type="date"
+              min={minDate}
+              max={maxDate}
               error={errors.eventDate?.message}
               {...register("eventDate")}
             />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Start time" type="time" step={900} error={errors.startTime?.message} {...register("startTime")} />
+              <Field label="End time" type="time" step={900} error={errors.endTime?.message} {...register("endTime")} />
+            </div>
+            <p className="-mt-1 text-[11px] text-zinc-500">
+              Pakistan time. If it runs past midnight, enter the end time on the next day (e.g. 20:00 → 02:00). Book
+              at least {BOOKING_WINDOW.minLeadDays} days and up to 2 years ahead.
+            </p>
             {datePulse ? (
               <div className="zh-callsheet rounded-xl border border-zh-gold/35 bg-zh-gold/10 px-4 py-4">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-zh-gold/80">Date stamp</p>
+                <p className="text-[10px] uppercase tracking-[0.3em] text-zh-gold/80">Availability on this date</p>
                 <p className="mt-2 text-sm normal-case tracking-normal text-zh-gold">{datePulse}</p>
-                <p className="mt-2 text-xs normal-case tracking-normal text-zinc-400">
-                  Locking this day does not block it. Another couple can still book — admin sees each client on a separate card.
-                </p>
               </div>
             ) : null}
           </>
@@ -260,7 +332,7 @@ export function BookExperience() {
             <Field label="Email" type="email" placeholder="you@email.com" error={errors.email?.message} {...register("email")} />
             <Field label="Phone / WhatsApp" placeholder="+92 …" error={errors.phone?.message} {...register("phone")} />
             <div className="text-xs text-zinc-500">
-              Locking this scene places a separate client card on the production board — even if another couple already chose the same day.
+              Sending this request holds your time for 48 hours while a producer reviews it. It becomes a confirmed booking only after we confirm with you.
             </div>
           </>
         )}
@@ -284,7 +356,7 @@ export function BookExperience() {
             Previous
           </Button>
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Locking…" : step === steps.length - 1 ? "Lock the date" : "Next scene"}
+            {submitting ? "Sending…" : step === steps.length - 1 ? "Send booking request" : "Next scene"}
           </Button>
         </div>
       </form>

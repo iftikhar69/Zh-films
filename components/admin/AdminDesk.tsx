@@ -10,6 +10,7 @@ import {
   bookingStatusLabel,
   paymentStatusLabel
 } from "@/lib/booking-status";
+import { SERVICES } from "@/lib/booking-rules";
 
 type Booking = {
   id: string;
@@ -22,12 +23,16 @@ type Booking = {
   coverage: string;
   status: string;
   paymentStatus: string;
+  serviceType: string;
+  startTime: string | null;
+  endTime: string | null;
+  holdExpiresAt: string | null;
 };
 
 function BookingControls({ booking, onSaved }: { booking: Booking; onSaved: () => void }) {
   const [saving, setSaving] = useState(false);
 
-  async function update(patch: Partial<Pick<Booking, "status" | "paymentStatus">>) {
+  async function update(patch: Partial<Pick<Booking, "status" | "paymentStatus">> & { override?: boolean }) {
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/bookings/${booking.id}`, {
@@ -35,7 +40,14 @@ function BookingControls({ booking, onSaved }: { booking: Booking; onSaved: () =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch)
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
+      if (res.status === 409 && json.code === "slot_conflict") {
+        toast.error(json.error, {
+          duration: 12000,
+          action: { label: "Confirm anyway", onClick: () => void update({ ...patch, override: true }) }
+        });
+        return;
+      }
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Update failed");
       toast.success(`${booking.confirmationCode} updated`);
       onSaved();
@@ -192,7 +204,7 @@ export function AdminDesk() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <h2 className="font-mono text-sm text-zh-gold">{date}</h2>
                 <span className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">
-                  {data.bookingsByDate[date].length} client(s) · day still open
+                  {data.bookingsByDate[date].length} request(s)
                 </span>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
@@ -200,9 +212,20 @@ export function AdminDesk() {
                   <article key={b.id} className="rounded-xl border border-zh-gold/20 bg-black/40 p-4">
                     <p className="font-mono text-[10px] text-zh-gold">{b.confirmationCode}</p>
                     <p className="mt-1 font-serif text-lg text-white">{b.names}</p>
+                    <p className="mt-1 text-xs text-zh-gold/80">
+                      {SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType}
+                      {b.startTime && b.endTime ? ` · ${b.startTime}–${b.endTime} PKT` : ""}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-400">
                       {b.city} · {b.coverage}
                     </p>
+                    {b.status === "pending" ? (
+                      <p className="mt-1 text-[11px] text-zinc-500">
+                        {b.holdExpiresAt && new Date(b.holdExpiresAt) > new Date()
+                          ? `Holding slot until ${new Date(b.holdExpiresAt).toLocaleString()}`
+                          : "Hold expired — slot not reserved"}
+                      </p>
+                    ) : null}
                     <p className="mt-2 text-xs text-zinc-300">
                       {b.email} · {b.phone}
                     </p>

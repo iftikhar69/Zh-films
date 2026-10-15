@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
 import { useFavoriteCount } from "@/stores/favorites-store";
 import { bookingStatusLabel, paymentStatusLabel } from "@/lib/booking-status";
+import { SERVICES } from "@/lib/booking-rules";
 
 function FavoritesShortcut() {
   const count = useFavoriteCount();
@@ -39,6 +40,10 @@ type Payload = {
     status: string;
     paymentStatus: string;
     updatedAt: string;
+    serviceType: string;
+    startTime: string | null;
+    endTime: string | null;
+    holdExpiresAt: string | null;
   }>;
   hires?: Array<{ crewName: string; eventDate: string; status: string }>;
   rentals?: Array<{ gearName: string; startDate: string; status: string }>;
@@ -98,8 +103,16 @@ export default function AccountPage() {
               <p className="font-mono text-xs text-zh-gold">{b.confirmationCode}</p>
               <p className="font-serif text-lg text-white">{b.names}</p>
               <p className="text-sm text-zinc-400">
-                {b.eventDate} · {b.city}
+                {SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType} · {b.eventDate}
+                {b.startTime && b.endTime ? ` · ${b.startTime}–${b.endTime} PKT` : ""} · {b.city}
               </p>
+              {b.status === "pending" ? (
+                <p className="mt-1 text-xs text-zinc-400">
+                  {b.holdExpiresAt && new Date(b.holdExpiresAt) > new Date()
+                    ? `Your time is held until ${new Date(b.holdExpiresAt).toLocaleString()} while we review it.`
+                    : "Hold expired — this time may be offered to others until a producer confirms with you."}
+                </p>
+              ) : null}
               <p className="mt-1 text-xs text-zinc-500">
                 {b.coverage} · {b.deliverables}
               </p>
