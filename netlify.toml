@@ -7,6 +7,8 @@
 [build.environment]
   NODE_VERSION = "22"
   DATABASE_URL = "file:./preview.db"
+  # NEXT_PUBLIC_* values are shipped to the browser by design; real secrets stay scanned.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SITE_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,NEXT_PUBLIC_CONTACT_EMAIL,NEXT_PUBLIC_WHATSAPP,NEXT_PUBLIC_INSTAGRAM_URL,NEXT_PUBLIC_FACEBOOK_URL,NEXT_PUBLIC_HERO_VIDEO_URL,NEXT_PUBLIC_HERO_POSTER_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
