@@ -28,16 +28,24 @@ export function formatCallSheet(input: {
   names: string;
   eventDate: string;
   city: string;
+  service?: string;
+  timeRange?: string;
+  holdUntil?: string;
 }) {
   return [
-    "ZH FILMS — CALL SHEET CONFIRMATION",
-    `Code: ${input.code}`,
+    "ZH FILMS — BOOKING REQUEST RECEIVED",
+    `Reference: ${input.code}`,
     `Names: ${input.names}`,
-    `Date: ${input.eventDate}`,
-    `City: ${input.city}`,
+    input.service ? `Service: ${input.service}` : null,
+    `Date: ${input.eventDate}${input.timeRange ? ` · ${input.timeRange} (Pakistan time)` : ""}`,
+    `Location: ${input.city}`,
     "",
-    "Your date request is locked on our board.",
-    "This day stays open for other clients — each booking is tracked separately in production office.",
-    "A producer will confirm coverage details within 24 hours."
-  ].join("\n");
+    "This is a request, not yet a confirmed booking.",
+    input.holdUntil
+      ? `We are holding this time for you until ${input.holdUntil} while a producer reviews it.`
+      : null,
+    "A producer will contact you to confirm the date, coverage and any advance."
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n");
 }

@@ -1,4 +1,4 @@
-export const BOOKING_STATUSES = ["pending", "confirmed", "in_production", "delivered", "cancelled"] as const;
+export const BOOKING_STATUSES = ["pending", "confirmed", "in_production", "delivered", "cancelled", "declined"] as const;
 export const PAYMENT_STATUSES = ["not_requested", "awaiting", "paid", "refunded"] as const;
 
 export type BookingStatus = (typeof BOOKING_STATUSES)[number];
@@ -9,7 +9,8 @@ export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
   confirmed: "Date confirmed",
   in_production: "In production",
   delivered: "Film delivered",
-  cancelled: "Cancelled"
+  cancelled: "Cancelled",
+  declined: "Declined — date not available"
 };
 
 export const PAYMENT_STATUS_LABEL: Record<PaymentStatus, string> = {
