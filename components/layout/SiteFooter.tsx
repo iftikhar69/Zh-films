@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Facebook, Instagram, Mail, MessageCircle } from "lucide-react";
+import { ArrowUpRight, Facebook, Instagram, Mail, MessageCircle, Phone } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import { FILM_FAMILY, waLink } from "@/lib/film-family";
 import { Marquee } from "@/components/motion/Marquee";
@@ -21,7 +22,8 @@ const columns = [
   {
     title: "Work with us",
     links: [
-      { href: "/book", label: "Book a date" },
+      { href: "/book/wedding", label: "Wedding packages" },
+      { href: "/book/event", label: "Book an event" },
       { href: "/hire", label: "Hire the family" },
       { href: "/rent", label: "Rent gear" },
       { href: "/sell", label: "Vault sale" }
@@ -37,10 +39,28 @@ const columns = [
   }
 ];
 
+function displayPhone(intl: string) {
+  return intl.startsWith("92") && intl.length === 12 ? `+92 ${intl.slice(2, 5)} ${intl.slice(5)}` : `+${intl}`;
+}
+
 export function SiteFooter() {
+  const socials = [
+    FILM_FAMILY.instagram ? { href: FILM_FAMILY.instagram, icon: Instagram, label: "Instagram" } : null,
+    FILM_FAMILY.facebook ? { href: FILM_FAMILY.facebook, icon: Facebook, label: "Facebook" } : null,
+    FILM_FAMILY.email ? { href: `mailto:${FILM_FAMILY.email}`, icon: Mail, label: "Email" } : null
+  ].filter((s): s is NonNullable<typeof s> => s !== null);
+
   return (
     <footer className="relative overflow-hidden border-t border-white/5 bg-black">
-      <div className="pointer-events-none absolute -bottom-40 left-1/2 h-96 w-[70rem] -translate-x-1/2 rounded-full bg-zh-gold/10 blur-[120px]" />
+      <Image
+        src="/media/instagram/C0HH-nXIP6k-1.jpg"
+        alt=""
+        fill
+        sizes="100vw"
+        loading="lazy"
+        className="pointer-events-none object-cover object-[50%_30%] opacity-[0.18] grayscale"
+      />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black" />
 
       <div className="border-b border-white/5 py-6">
         <Marquee seconds={36}>
@@ -84,6 +104,19 @@ export function SiteFooter() {
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </a>
             </div>
+            <address className="mt-8 space-y-2 text-sm not-italic text-zinc-400">
+              {FILM_FAMILY.whatsapp ? (
+                <a href={`tel:+${FILM_FAMILY.whatsapp}`} className="flex items-center gap-2 hover:text-zh-gold">
+                  <Phone className="h-4 w-4 text-zh-gold/70" /> {displayPhone(FILM_FAMILY.whatsapp)} · WhatsApp &amp; calls
+                </a>
+              ) : null}
+              {FILM_FAMILY.email ? (
+                <a href={`mailto:${FILM_FAMILY.email}`} className="flex items-center gap-2 hover:text-zh-gold">
+                  <Mail className="h-4 w-4 text-zh-gold/70" /> {FILM_FAMILY.email}
+                </a>
+              ) : null}
+              <p>{BRAND.location}</p>
+            </address>
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
@@ -113,11 +146,7 @@ export function SiteFooter() {
             <span className="ml-3 uppercase tracking-[0.25em]">Directed by {FILM_FAMILY.ceo} · {BRAND.location}</span>
           </div>
           <div className="flex items-center gap-2">
-            {[
-              { href: FILM_FAMILY.instagram, icon: Instagram, label: "Instagram" },
-              { href: FILM_FAMILY.facebook, icon: Facebook, label: "Facebook" },
-              { href: `mailto:${FILM_FAMILY.email}`, icon: Mail, label: "Email" }
-            ].map((s) => (
+            {socials.map((s) => (
               <a
                 key={s.label}
                 href={s.href}

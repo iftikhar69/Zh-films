@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
 import { TRANSITIONS, isHeld, type BookingStatus } from "@/lib/booking-status";
 import { holdExpiry } from "@/lib/booking-rules";
-import { SlotUnavailableError, assertSlotFree, withScheduleLock } from "@/lib/booking-availability";
+import { SlotUnavailableError, assertBookingFree, withScheduleLock } from "@/lib/booking-availability";
 import { logBookingEvent } from "@/lib/booking-events";
 import { getSettings } from "@/lib/settings";
 import { formatInstant, formatPkr, notifyAdvanceRequested, notifyHoldPlaced, notifyStatusChange } from "@/lib/notify";
@@ -18,7 +18,8 @@ const action = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("set_quote"),
     quotedAmount: z.number().int().min(0).max(100_000_000),
-    advanceAmount: z.number().int().min(0).max(100_000_000)
+    advanceAmount: z.number().int().min(0).max(100_000_000),
+    note: z.string().max(500).optional()
   }),
   z.object({ action: z.literal("note"), note: z.string().min(1).max(2000) })
 ]);
@@ -67,7 +68,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         if (target === "confirmed") {
           if (!current.blockStart || !current.blockEnd) throw new ActionError("This booking has no time range to reserve.");
           if (!("override" in input && input.override)) {
-            await assertSlotFree(tx, { blockStart: current.blockStart, blockEnd: current.blockEnd }, now, id);
+            await assertBookingFree(tx, current, now);
           }
         }
         const reason = "reason" in input ? input.reason : undefined;
@@ -83,7 +84,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       if (input.action === "hold") {
         if (current.status !== "pending") throw new ActionError("Only pending requests can be held.", 409);
         if (!current.blockStart || !current.blockEnd) throw new ActionError("This booking has no time range to hold.");
-        await assertSlotFree(tx, { blockStart: current.blockStart, blockEnd: current.blockEnd }, now, id);
+        await assertBookingFree(tx, current, now);
         const until = holdExpiry(input.hours ?? settings.holds.defaultHours, now);
         const updated = await tx.booking.update({ where: { id }, data: { holdExpiresAt: until, heldBy: actor } });
         await logBookingEvent(tx, id, "hold", `Temporary hold until ${formatInstant(until)}`, actor);
@@ -112,11 +113,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           where: { id },
           data: { quotedAmount: input.quotedAmount, advanceAmount: input.advanceAmount, paymentStatus }
         });
+        const diff = current.estimatedTotal != null ? input.quotedAmount - current.estimatedTotal : null;
+        const vsEstimate =
+          diff == null || diff === 0
+            ? ""
+            : diff < 0
+              ? ` — discount of ${formatPkr(-diff)} on the ${formatPkr(current.estimatedTotal)} estimate`
+              : ` — ${formatPkr(diff)} above the ${formatPkr(current.estimatedTotal)} estimate`;
         await logBookingEvent(
           tx,
           id,
           "quote",
-          `Quote ${formatPkr(input.quotedAmount)}, advance ${formatPkr(input.advanceAmount)}`,
+          `Quote ${formatPkr(input.quotedAmount)}, advance ${formatPkr(input.advanceAmount)}${vsEstimate}${input.note ? ` — ${input.note}` : ""}`,
           actor
         );
         return { booking: updated, previous: current };

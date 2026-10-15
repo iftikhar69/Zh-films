@@ -1,28 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, CalendarClock } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Reveal } from "@/components/motion/Reveal";
 import { SplitText } from "@/components/motion/SplitText";
-import { SERVICES, SERVICE_TYPES } from "@/lib/booking-rules";
+import { EVENT_TYPES, EVENT_TYPE_KEYS } from "@/lib/enquiry";
 
 /**
- * `confirmedDates` comes straight from the booking table (confirmed, in production or delivered
- * in the next 90 days). It is only shown when there is something true to say.
+ * `confirmedDates` comes straight from the booking table (confirmed or completed in the next
+ * 90 days). It is only shown when there is something true to say.
  */
 export function ReserveYourDate({ confirmedDates }: { confirmedDates: number }) {
   return (
-    <section aria-labelledby="reserve-heading" className="relative overflow-hidden border-t border-white/5 py-24 sm:py-32">
-      <Image
-        src="/media/instagram/C0HH-nXIP6k-1.jpg"
-        alt=""
-        fill
-        sizes="100vw"
-        loading="lazy"
-        className="pointer-events-none object-cover opacity-[0.12] grayscale"
-      />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-black/70 to-black" />
-
-      <div className="relative mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+    <section aria-labelledby="reserve-heading" className="relative overflow-hidden border-t border-white/5 bg-black py-24 sm:py-32">
+      <div className="relative mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:items-center">
         <div>
           <p className="flex items-center gap-3 text-xs uppercase tracking-[0.45em] text-zh-gold/80">
             <span className="h-px w-10 bg-zh-gold/60" />
@@ -48,44 +38,70 @@ export function ReserveYourDate({ confirmedDates }: { confirmedDates: number }) 
               Weddings, Nikah ceremonies, events and cinematic shoots deserve the right team and the right date. Reserve
               your date in advance to help us plan your moments without last-minute stress.
             </p>
-          </Reveal>
-        </div>
-
-        <Reveal delay={0.45} className="relative">
-          <div className="rounded-3xl border border-zh-gold/25 bg-black/70 p-6 shadow-[0_0_60px_rgba(200,169,106,0.08)] sm:p-8">
-            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.3em] text-zinc-500">
-              <span>Call sheet · Request</span>
-              <CalendarClock className="h-4 w-4 text-zh-gold/70" aria-hidden />
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/book/wedding"
+                className="group inline-flex h-12 items-center gap-3 rounded-full bg-zh-gold px-6 text-[11px] font-semibold uppercase tracking-[0.25em] text-black transition-colors hover:bg-[#d8bb7e]"
+              >
+                Wedding packages
+                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="/book/event"
+                className="inline-flex h-12 items-center rounded-full border border-white/15 px-6 text-[11px] uppercase tracking-[0.22em] text-zinc-200 transition hover:border-zh-gold/50 hover:text-zh-gold"
+              >
+                Book an event in advance
+              </Link>
             </div>
-            <ul className="mt-5 flex flex-wrap gap-2">
-              {SERVICE_TYPES.map((t) => (
+            <ul className="mt-6 flex flex-wrap gap-2">
+              {EVENT_TYPE_KEYS.map((t) => (
                 <li key={t}>
                   <Link
-                    href={`/book?service=${t}`}
-                    className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-zinc-300 transition-colors hover:border-zh-gold/50 hover:text-zh-gold"
+                    href={`/book/event?type=${t}`}
+                    className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-[11px] text-zinc-400 transition-colors hover:border-zh-gold/50 hover:text-zh-gold"
                   >
-                    {SERVICES[t].label.split(" (")[0]}
+                    {EVENT_TYPES[t].label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <Link
-              href="/book"
-              className="group mt-7 flex items-center justify-between rounded-full bg-zh-gold px-6 py-4 text-xs font-semibold uppercase tracking-[0.3em] text-black transition-colors hover:bg-[#d8bb7e]"
-            >
-              Reserve your date
-              <ArrowUpRight className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-            </Link>
-            <p className="mt-5 flex items-start gap-2 text-[11px] leading-relaxed text-zinc-400">
-              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden />
-              Limited availability on popular dates · Booking is subject to confirmation
+            <p className="mt-6 text-[11px] leading-relaxed text-zinc-500">
+              Every booking is subject to confirmation by ZH Films.
+              {confirmedDates > 0
+                ? ` ${confirmedDates} ${confirmedDates === 1 ? "date is" : "dates are"} already confirmed in the next 90 days.`
+                : ""}
             </p>
-            {confirmedDates > 0 ? (
-              <p className="mt-2 pl-3.5 text-[11px] text-zinc-500">
-                {confirmedDates} {confirmedDates === 1 ? "date is" : "dates are"} already confirmed in the next 90 days.
-              </p>
-            ) : null}
-          </div>
+          </Reveal>
+        </div>
+
+        <Reveal delay={0.2} className="relative">
+          <figure className="group relative aspect-[4/3] overflow-hidden rounded-3xl border border-white/10 bg-zinc-950">
+            <Image
+              src="/media/cinema-camera.jpg"
+              alt="Cinema camera rig with matte box and follow focus, ready on set"
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              loading="lazy"
+              className="object-cover transition-transform duration-[1.4s] ease-out group-hover:scale-[1.04]"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+            <div aria-hidden className="pointer-events-none absolute inset-4 sm:inset-6">
+              <span className="absolute left-0 top-0 h-6 w-6 border-l-2 border-t-2 border-zh-gold/70" />
+              <span className="absolute right-0 top-0 h-6 w-6 border-r-2 border-t-2 border-zh-gold/70" />
+              <span className="absolute bottom-0 left-0 h-6 w-6 border-b-2 border-l-2 border-zh-gold/70" />
+              <span className="absolute bottom-0 right-0 h-6 w-6 border-b-2 border-r-2 border-zh-gold/70" />
+              <span className="absolute left-3 top-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.3em] text-white/80">
+                <span className="h-2 w-2 rounded-full bg-red-500" /> Rec
+              </span>
+              <span className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2">
+                <span className="absolute left-1/2 top-0 h-full w-px bg-white/30" />
+                <span className="absolute left-0 top-1/2 h-px w-full bg-white/30" />
+              </span>
+            </div>
+            <figcaption className="absolute inset-x-0 bottom-0 p-5 text-xs uppercase tracking-[0.3em] text-zinc-300 sm:p-7">
+              Lights. Camera. Your story.
+            </figcaption>
+          </figure>
         </Reveal>
       </div>
     </section>

@@ -74,12 +74,84 @@ async function lockedTransaction<T>(fn: (tx: Tx) => Promise<T>, attempt = 0): Pr
   }
 }
 
-export async function assertSlotFree(tx: Tx, slot: Pick<Slot, "blockStart" | "blockEnd">, now = new Date(), excludeId?: string) {
-  const conflicts = await tx.booking.findMany({
-    where: blockingWhere(slot.blockStart, slot.blockEnd, now, excludeId),
-    select: { blockStart: true, blockEnd: true }
+type Range = { blockStart: Date; blockEnd: Date };
+type Db = Tx | typeof prisma;
+
+function blockingStatus(now: Date): Prisma.BookingWhereInput {
+  return {
+    OR: [{ status: { in: [...BLOCKING_STATUSES] } }, { status: HOLDING_STATUS, holdExpiresAt: { gt: now } }]
+  };
+}
+
+/** Blocking ranges overlapping [from, to): booking rows plus their individual functions. */
+async function blockingRanges(db: Db, from: Date, to: Date, now: Date, excludeId?: string): Promise<Range[]> {
+  const [rows, fns] = await Promise.all([
+    db.booking.findMany({ where: blockingWhere(from, to, now, excludeId), select: { blockStart: true, blockEnd: true } }),
+    db.bookingFunction.findMany({
+      where: {
+        teamId: TEAM_ID,
+        blockStart: { lt: to },
+        blockEnd: { gt: from },
+        booking: { ...blockingStatus(now), id: excludeId ? { not: excludeId } : undefined }
+      },
+      select: { blockStart: true, blockEnd: true }
+    })
+  ]);
+  const seen = new Set<string>();
+  return [...(rows as Range[]), ...fns].filter((r) => {
+    const k = `${r.blockStart.getTime()}-${r.blockEnd.getTime()}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
   });
-  if (conflicts.length) throw new SlotUnavailableError(conflicts as { blockStart: Date; blockEnd: Date }[]);
+}
+
+export async function assertSlotFree(tx: Tx, slot: Pick<Slot, "blockStart" | "blockEnd">, now = new Date(), excludeId?: string) {
+  const conflicts = await blockingRanges(tx, slot.blockStart, slot.blockEnd, now, excludeId);
+  if (conflicts.length) throw new SlotUnavailableError(conflicts);
+}
+
+/** Every time range a booking occupies: its functions, or the single booking slot for older rows. */
+export async function bookingRanges(db: Db, booking: { id: string; blockStart: Date | null; blockEnd: Date | null }) {
+  const fns = await db.bookingFunction.findMany({
+    where: { bookingId: booking.id },
+    select: { blockStart: true, blockEnd: true },
+    orderBy: { sortOrder: "asc" }
+  });
+  if (fns.length) return fns as Range[];
+  return booking.blockStart && booking.blockEnd ? [{ blockStart: booking.blockStart, blockEnd: booking.blockEnd }] : [];
+}
+
+/** Checks all of a booking's ranges against everyone else's blocking ranges. */
+export async function assertBookingFree(tx: Tx, booking: { id: string; blockStart: Date | null; blockEnd: Date | null }, now = new Date()) {
+  const ranges = await bookingRanges(tx, booking);
+  for (const r of ranges) await assertSlotFree(tx, r, now, booking.id);
+  return ranges.length;
+}
+
+/**
+ * Staff view: other pending/confirmed/completed bookings overlapping any of this booking's ranges.
+ * Includes plain pending requests so the owner can review clashes before confirming.
+ */
+export async function findOverlaps(booking: { id: string; blockStart: Date | null; blockEnd: Date | null; teamId: string }) {
+  const ranges = await bookingRanges(prisma, booking);
+  const open = { in: ["pending", "confirmed", "completed"] };
+  const found = new Map<string, { id: string; names: string; status: string; holdExpiresAt: Date | null; when: string }>();
+  for (const r of ranges) {
+    const [rows, fns] = await Promise.all([
+      prisma.booking.findMany({
+        where: { id: { not: booking.id }, teamId: booking.teamId, status: open, blockStart: { lt: r.blockEnd }, blockEnd: { gt: r.blockStart } },
+        select: { id: true, names: true, status: true, holdExpiresAt: true, eventDate: true, startTime: true, endTime: true }
+      }),
+      prisma.bookingFunction.findMany({
+        where: { teamId: booking.teamId, blockStart: { lt: r.blockEnd }, blockEnd: { gt: r.blockStart }, booking: { id: { not: booking.id }, status: open } },
+        select: { type: true, eventDate: true, startTime: true, endTime: true, booking: { select: { id: true, names: true, status: true, holdExpiresAt: true } } }
+      })
+    ]);
+    for (const o of rows) found.set(o.id, { ...o, when: `${o.eventDate} ${o.startTime ?? ""}–${o.endTime ?? ""}` });
+    for (const f of fns) found.set(f.booking.id, { ...f.booking, when: `${f.type} · ${f.eventDate} ${f.startTime}–${f.endTime}` });
+  }
+  return [...found.values()];
 }
 
 /**
@@ -89,11 +161,7 @@ export async function assertSlotFree(tx: Tx, slot: Pick<Slot, "blockStart" | "bl
 export async function busyRangesForDate(date: string, now = new Date()) {
   const dayStart = zonedTimeToUtc(date, "00:00");
   const dayEnd = new Date(dayStart.getTime() + 86400000);
-  const rows = await prisma.booking.findMany({
-    where: blockingWhere(dayStart, dayEnd, now),
-    select: { blockStart: true, blockEnd: true },
-    orderBy: { blockStart: "asc" }
-  });
+  const rows = (await blockingRanges(prisma, dayStart, dayEnd, now)).sort((a, b) => a.blockStart.getTime() - b.blockStart.getTime());
   return rows.map((r) => {
     const from = r.blockStart! < dayStart ? dayStart : r.blockStart!;
     const to = r.blockEnd! > dayEnd ? dayEnd : r.blockEnd!;

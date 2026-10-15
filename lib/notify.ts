@@ -2,6 +2,8 @@ import type { Booking, Payment } from "@prisma/client";
 import { sendEmail } from "@/lib/email";
 import { getSettings, ownerEmails } from "@/lib/settings";
 import { BOOKING_TIMEZONE, SERVICES } from "@/lib/booking-rules";
+import { EVENT_TYPES, WEDDING_FUNCTIONS } from "@/lib/enquiry";
+import { prisma } from "@/lib/prisma";
 
 const SITE = () => (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:4317").replace(/\/$/, "");
 
@@ -22,13 +24,28 @@ export function formatInstant(d: Date) {
 }
 
 function summary(b: Booking) {
-  const service = SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType;
+  const service =
+    b.packageName ??
+    (b.eventType ? EVENT_TYPES[b.eventType as keyof typeof EVENT_TYPES]?.label : null) ??
+    SERVICES[b.serviceType as keyof typeof SERVICES]?.label ??
+    b.serviceType;
   return [
     `Reference: ${b.confirmationCode}`,
     `Service: ${service}`,
+    b.estimatedTotal != null ? `Estimate (before ZH Films approval): ${formatPkr(b.estimatedTotal)}` : null,
     `Date: ${b.eventDate}${b.startTime && b.endTime ? `, ${b.startTime}–${b.endTime} (Pakistan time)` : ""}`,
     `Location: ${b.city}`
-  ].join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function functionLines(b: Booking) {
+  const fns = await prisma.bookingFunction.findMany({ where: { bookingId: b.id }, orderBy: { sortOrder: "asc" } });
+  if (fns.length < 2) return "";
+  return `\nFunctions:\n${fns
+    .map((f) => `• ${WEDDING_FUNCTIONS[f.type as keyof typeof WEDDING_FUNCTIONS]?.label ?? f.type} — ${f.eventDate} ${f.startTime}–${f.endTime}${f.venue ? ` @ ${f.venue}` : ""}`)
+    .join("\n")}`;
 }
 
 const NOT_RESERVED = "Please note: this is a request, not a reservation. Your date is reserved only once we confirm it with you.";
@@ -54,7 +71,7 @@ export async function notifyNewRequest(b: Booking) {
         bookingId: b.id,
         to: owner,
         subject: `New booking request · ${b.names} · ${b.eventDate}`,
-        text: `A new booking request is waiting for review.\n\n${summary(b)}\nClient: ${b.names}\nEmail: ${b.email}\nPhone: ${b.phone}\nCoverage: ${b.coverage}\nDeliverables: ${b.deliverables}\n\nReview and check availability:\n${adminLink(b)}`
+        text: `A new booking request is waiting for review.${b.whatsappRequested ? " The customer is also continuing on WhatsApp." : ""}\n\n${summary(b)}${await functionLines(b)}${b.budget ? `\nBudget / deal request: ${b.budget}` : ""}\nClient: ${b.names}\nEmail: ${b.email || "not given"}\nPhone: ${b.phone}\nCoverage: ${b.coverage}\nDeliverables: ${b.deliverables}\n\nReview and check availability:\n${adminLink(b)}`
       })
     );
   }

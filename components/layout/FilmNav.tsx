@@ -25,7 +25,14 @@ const links = [
   { href: "/about", label: "About" }
 ];
 
-const mobileLinks = [{ href: "/", label: "Opening" }, ...links, { href: "/instagram", label: "Dailies" }, { href: "/account", label: "Call sheet" }];
+const mobileLinks = [
+  { href: "/", label: "Opening" },
+  { href: "/book/wedding", label: "Wedding packages" },
+  { href: "/book/event", label: "Book an event" },
+  ...links,
+  { href: "/instagram", label: "Dailies" },
+  { href: "/account", label: "My bookings" }
+];
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -232,6 +239,7 @@ export function FilmNav() {
                 >
                   <Link
                     href={l.href}
+                    onClick={() => setMenuOpen(false)}
                     className={cn(
                       "flex items-baseline gap-4 border-b border-white/5 py-3 font-display text-3xl font-semibold uppercase tracking-tight transition-colors",
                       isActive(pathname, l.href) ? "text-zh-gold" : "text-white hover:text-zh-gold"
@@ -249,7 +257,7 @@ export function FilmNav() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
             >
-              <Link href="/book" className="rounded-full bg-zh-gold px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-black">
+              <Link href="/book" onClick={() => setMenuOpen(false)} className="rounded-full bg-zh-gold px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-black">
                 Book your date
               </Link>
               <a
@@ -260,14 +268,14 @@ export function FilmNav() {
               >
                 WhatsApp
               </a>
-              <div className="flex items-center gap-1.5">
-                <AuthControls />
+              <div className="flex flex-wrap items-center gap-1.5">
+                <AuthControls onNavigate={() => setMenuOpen(false)} />
                 <CinemaModeToggle />
               </div>
             </motion.div>
-            <p className="relative mt-auto pt-10 text-[10px] uppercase tracking-[0.35em] text-zinc-600">
-              {FILM_FAMILY.email}
-            </p>
+            {FILM_FAMILY.email ? (
+              <p className="relative mt-auto pt-10 text-[10px] uppercase tracking-[0.35em] text-zinc-600">{FILM_FAMILY.email}</p>
+            ) : null}
           </motion.div>
         ) : null}
       </AnimatePresence>

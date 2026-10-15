@@ -24,6 +24,8 @@ type Props = {
   quotedAmount: number | null;
   advanceAmount: number | null;
   defaultAdvancePercent: number;
+  /** Server-computed package + add-ons estimate, if the customer chose a package. */
+  estimatedTotal?: number | null;
 };
 
 const COPY: Record<Kind, { title: string; body: string; cta: string; danger?: boolean; reason?: boolean }> = {
@@ -202,16 +204,18 @@ export function BookingActions(props: Props) {
   );
 }
 
-function QuoteForm({ bookingId, quotedAmount, advanceAmount, defaultAdvancePercent }: Props) {
+function QuoteForm({ bookingId, quotedAmount, advanceAmount, defaultAdvancePercent, estimatedTotal }: Props) {
   const router = useRouter();
   const [total, setTotal] = useState(quotedAmount?.toString() ?? "");
   const [advance, setAdvance] = useState(advanceAmount?.toString() ?? "");
+  const [note, setNote] = useState("");
+  const diff = estimatedTotal != null && total ? Number(total) - estimatedTotal : null;
   const [busy, setBusy] = useState(false);
   const input = "h-10 w-full rounded-lg border border-white/10 bg-black/60 px-3 text-sm text-zinc-100";
 
   return (
     <form
-      className="grid gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+      className="grid gap-3 rounded-2xl border border-white/10 bg-black/30 p-4 sm:grid-cols-[1fr_1fr_1.4fr_auto] sm:items-end"
       onSubmit={async (e) => {
         e.preventDefault();
         const q = Number(total);
@@ -224,7 +228,8 @@ function QuoteForm({ bookingId, quotedAmount, advanceAmount, defaultAdvancePerce
         const { res, json } = await post(`/api/admin/bookings/${bookingId}`, {
           action: "set_quote",
           quotedAmount: q,
-          advanceAmount: a
+          advanceAmount: a,
+          note: note.trim() || undefined
         });
         setBusy(false);
         if (!res.ok || !json.ok) toast.error(json.error ?? "Could not save");
@@ -257,9 +262,28 @@ function QuoteForm({ bookingId, quotedAmount, advanceAmount, defaultAdvancePerce
           className={`${input} mt-1`}
         />
       </label>
+      <label className="text-xs text-zinc-400">
+        Discount / custom deal note (optional)
+        <input value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Agreed on WhatsApp: 3 functions" className={`${input} mt-1`} />
+      </label>
       <Button type="submit" size="sm" disabled={busy || !total}>
         {busy ? "Saving…" : "Save quote"}
       </Button>
+      {estimatedTotal != null ? (
+        <p className="text-xs text-zinc-500 sm:col-span-4">
+          Package estimate: PKR {estimatedTotal.toLocaleString("en-PK")}
+          {diff ? (diff < 0 ? ` · discount PKR ${(-diff).toLocaleString("en-PK")}` : ` · PKR ${diff.toLocaleString("en-PK")} above estimate`) : ""}
+          {!total ? (
+            <button type="button" className="ml-2 text-zh-gold hover:underline" onClick={() => {
+              setTotal(String(estimatedTotal));
+              if (!advanceAmount) setAdvance(String(Math.round((estimatedTotal * defaultAdvancePercent) / 100)));
+            }}>
+              Use estimate
+            </button>
+          ) : null}
+          . The agreed total becomes the customer&apos;s final price only when you save it here.
+        </p>
+      ) : null}
     </form>
   );
 }

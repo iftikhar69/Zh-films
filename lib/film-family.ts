@@ -3,15 +3,32 @@ import { BRAND } from "@/lib/constants";
 export const FILM_FAMILY = {
   name: "ZH Film Family",
   tagline: "One house. Many lenses. Lahore light.",
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP ?? "923000000000",
-  instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? "https://instagram.com/zhfilms",
-  facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL ?? "https://facebook.com/zhfilms",
-  email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@zhfilms.example",
+  whatsapp: normalizeWhatsApp(process.env.NEXT_PUBLIC_WHATSAPP),
+  instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL || "https://www.instagram.com/zulfiqar_hussain.films/",
+  facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || "https://www.facebook.com/people/ZH_films/100092306776654/",
+  email: realValue(process.env.NEXT_PUBLIC_CONTACT_EMAIL),
   ceo: BRAND.ceo
 } as const;
 
+function realValue(v: string | undefined) {
+  return v && !/replace_me/i.test(v) ? v.trim() : "";
+}
+
+/** wa.me needs the international number without "+" or leading zeros (03xx… → 923xx…). */
+export function normalizeWhatsApp(raw: string | null | undefined) {
+  let d = (raw ?? "").replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.length === 11 && d.startsWith("03")) d = `92${d.slice(1)}`;
+  if (d.length === 10 && d.startsWith("3")) d = `92${d}`;
+  return d.length >= 10 && d.length <= 15 ? d : "";
+}
+
+/**
+ * Without a configured number, wa.me/?text= lets the visitor pick the chat themselves
+ * rather than sending them to a guessed number.
+ */
 export function waLink(message?: string, phone?: string | null) {
-  const base = `https://wa.me/${(phone ?? FILM_FAMILY.whatsapp).replace(/\D/g, "")}`;
+  const base = `https://wa.me/${normalizeWhatsApp(phone ?? FILM_FAMILY.whatsapp)}`;
   if (!message) return base;
   return `${base}?text=${encodeURIComponent(message)}`;
 }

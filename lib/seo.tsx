@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/constants";
+import { FILM_FAMILY } from "@/lib/film-family";
 import type { Metadata } from "next";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://zhfilms.example";
@@ -49,7 +50,8 @@ export function localBusinessJsonLd() {
       "Premium cinematic wedding films, AKU events, pre-events, commercial shoots, and drone cinematography in Lahore, Pakistan — directed by Zulfikar Hussain.",
     url: absoluteUrl("/"),
     image: DEFAULT_OG,
-    telephone: "+92-300-0000000",
+    ...(FILM_FAMILY.whatsapp ? { telephone: `+${FILM_FAMILY.whatsapp}` } : {}),
+    sameAs: [FILM_FAMILY.instagram, FILM_FAMILY.facebook],
     address: {
       "@type": "PostalAddress",
       addressLocality: "Lahore",
@@ -61,8 +63,7 @@ export function localBusinessJsonLd() {
       name: BRAND.ceo,
       jobTitle: "CEO & Lead Cinematographer"
     },
-    areaServed: "Pakistan",
-    sameAs: ["https://instagram.com"]
+    areaServed: "Pakistan"
   };
 }
 

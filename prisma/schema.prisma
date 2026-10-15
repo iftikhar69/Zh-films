@@ -113,8 +113,25 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @default(now()) @updatedAt
 
+  /// general | wedding_package | event
+  kind             String   @default("general")
+  /// Event booking type (nikah, engagement, birthday, corporate, other, shoot)
+  eventType        String?
+  /// Package snapshot at request time; prices are computed on the server from the catalog.
+  packageId        String?
+  packageName      String?
+  packagePrice     Int?
+  /// JSON array of { id, name, price } add-ons selected by the customer.
+  addonsJson       String?
+  estimatedTotal   Int?
+  /// Free-text budget or custom-deal wish from the customer. Not a price.
+  budget           String?
+  customDealRequested Boolean @default(false)
+  whatsappRequested   Boolean @default(false)
+
   payments         Payment[]
   events           BookingEvent[]
+  functions        BookingFunction[]
 
   @@index([teamId, blockStart, blockEnd])
   @@index([status, createdAt])
@@ -263,4 +280,26 @@ model GearItem {
   image       String
   available   Boolean @default(true)
   sortOrder   Int     @default(0)
+}
+
+/// One function of a booking (e.g. Mehndi, Baraat). Every slot is checked for conflicts;
+/// the first function is mirrored on the Booking row for older code paths.
+model BookingFunction {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  type       String
+  eventDate  String
+  startTime  String
+  endTime    String
+  venue      String   @default("")
+  startsAt   DateTime
+  endsAt     DateTime
+  blockStart DateTime
+  blockEnd   DateTime
+  teamId     String   @default("film-family")
+  sortOrder  Int      @default(0)
+
+  @@index([teamId, blockStart, blockEnd])
+  @@index([bookingId])
 }

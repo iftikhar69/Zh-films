@@ -6,6 +6,7 @@ import { ServicesBand } from "@/components/home/ServicesBand";
 import { FeaturedReels } from "@/components/home/FeaturedReels";
 import { ProcessTimeline } from "@/components/home/ProcessTimeline";
 import { ReserveYourDate } from "@/components/home/ReserveYourDate";
+import { WeddingPackages } from "@/components/home/WeddingPackages";
 import { confirmedDatesAhead } from "@/lib/booking-availability";
 import { MostLoved } from "@/components/home/MostLoved";
 import { ReviewsWall } from "@/components/home/ReviewsWall";
@@ -44,6 +45,7 @@ export default async function HomePage() {
       <ServicesBand />
       <FeaturedReels reels={featured} loves={loves} />
       <ProcessTimeline />
+      <WeddingPackages />
       <ReserveYourDate confirmedDates={confirmedDates} />
       <MoodTeaserEngine />
       <MostLoved reels={loved} />

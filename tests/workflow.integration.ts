@@ -234,3 +234,133 @@ test("email failures are logged, not thrown", async () => {
   assert.equal(r.status, "failed");
   assert.equal((await prisma.emailLog.findUniqueOrThrow({ where: { dedupeKey: "fail-test" } })).status, "failed");
 });
+
+const DATE2 = new Date(Date.now() + 40 * 86400000).toISOString().slice(0, 10);
+const DATE3 = new Date(Date.now() + 41 * 86400000).toISOString().slice(0, 10);
+
+async function post(body: object) {
+  const res = await createBooking.POST(new Request("http://x/api/bookings", { method: "POST", body: JSON.stringify(body) }) as never);
+  return { status: res.status, json: await res.json() };
+}
+
+const wedding = (over: object = {}) => ({
+  kind: "wedding_package",
+  packageId: "premium",
+  names: "Hina & Saad",
+  city: "Lahore",
+  phone: "03001234567",
+  email: "",
+  functions: [
+    { type: "mehndi", eventDate: DATE2, startTime: "19:00", endTime: "23:00", venue: "Home" },
+    { type: "baraat", eventDate: DATE3, startTime: "14:00", endTime: "20:00", venue: "PC Hotel" }
+  ],
+  ...over
+});
+
+async function putCatalog(body: unknown) {
+  const catalogRoute = (await import("../app/api/admin/catalog/route")) as Mod;
+  const res = await catalogRoute.PUT(new Request("http://x", { method: "PUT", body: JSON.stringify(body) }) as never);
+  return { status: res.status, json: await res.json() };
+}
+
+test("package booking: server computes the total, ignores browser totals, saves every function", async () => {
+  session = { userId: "user_owner", admin: true };
+  const { DEFAULT_CATALOG } = await import("../lib/catalog");
+  const saved = await putCatalog({
+    ...DEFAULT_CATALOG,
+    addons: [
+      { id: "drone", name: "Drone coverage", price: 25000, description: "", enabled: true },
+      { id: "album", name: "Extra album", price: 15000, description: "", enabled: false }
+    ]
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.json));
+  session = { userId: null, admin: false };
+
+  const r = await post(wedding({ addonIds: ["drone"], estimatedTotal: 1, packagePrice: 1, whatsapp: true, budget: "Around 160k" }));
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.estimate.total, 175000);
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id }, include: { functions: { orderBy: { sortOrder: "asc" } } } });
+  assert.equal(b.kind, "wedding_package");
+  assert.equal(b.packageName, "Premium Wedding Package");
+  assert.equal(b.packagePrice, 150000);
+  assert.equal(b.estimatedTotal, 175000);
+  assert.equal(b.quotedAmount, null, "no final price until an admin sets one");
+  assert.equal(b.whatsappRequested, true);
+  assert.deepEqual(b.functions.map((f) => [f.type, f.eventDate]), [["mehndi", DATE2], ["baraat", DATE3]]);
+  assert.equal(b.status, "pending");
+
+  const text: string = r.json.whatsappText;
+  assert.match(text, new RegExp(b.confirmationCode));
+  assert.match(text, /Mehndi/);
+  assert.match(text, /Baraat/);
+  assert.match(text, /Drone coverage/);
+  assert.match(text, /PKR 175,000/);
+
+  assert.equal((await post(wedding({ addonIds: ["album"] }))).status, 400, "disabled add-on refused");
+  assert.equal((await post(wedding({ packageId: "gold" }))).status, 400, "unknown package refused");
+  const clash = await post(wedding({
+    functions: [
+      { type: "nikah", eventDate: DATE2, startTime: "11:00", endTime: "15:00" },
+      { type: "baraat", eventDate: DATE2, startTime: "14:00", endTime: "20:00" }
+    ]
+  }));
+  assert.equal(clash.status, 400, "a booking's own functions may not overlap");
+});
+
+test("multi-function conflicts: a confirmed second function blocks others and confirm re-checks every function", async () => {
+  session = { userId: "user_owner", admin: true };
+  const a = await prisma.booking.findFirstOrThrow({ where: { names: "Hina & Saad" } });
+  assert.equal((await act(a.id, { action: "confirm" })).status, 200);
+
+  // Overlaps the Baraat (second function), not the Mehndi stored on the booking row.
+  const event = await post({ kind: "event", eventType: "birthday", names: "Birthday", city: "Lahore", phone: "03001112223", eventDate: DATE3, startTime: "16:00", endTime: "18:00" });
+  assert.equal(event.status, 409);
+
+  const other = await post(wedding({ names: "Second Couple", functions: [{ type: "walima", eventDate: DATE3, startTime: "08:00", endTime: "10:00" }] }));
+  assert.equal(other.status, 200, JSON.stringify(other.json));
+  await prisma.bookingFunction.updateMany({ where: { bookingId: other.json.booking.id }, data: { blockStart: new Date(Date.parse(`${DATE3}T10:00:00Z`)), blockEnd: new Date(Date.parse(`${DATE3}T12:00:00Z`)) } });
+  assert.equal((await act(other.json.booking.id, { action: "confirm" })).status, 409, "overlap found on a function slot");
+});
+
+test("event booking in advance has its own type and is pending review", async () => {
+  session = { userId: null, admin: false };
+  const r = await post({ kind: "event", eventType: "corporate", names: "Acme Ltd", city: "Expo Centre", phone: "03001112223", eventDate: DATE2, startTime: "09:00", endTime: "12:00", coverage: "Videography", customDeal: true });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id } });
+  assert.equal(b.kind, "event");
+  assert.equal(b.eventType, "corporate");
+  assert.equal(b.serviceType, "event");
+  assert.equal(b.packagePrice, null);
+  assert.equal(b.status, "pending");
+  assert.match(r.json.whatsappText, /Corporate event/);
+  assert.equal((await post({ kind: "event", names: "No type", city: "Lahore", phone: "03001112223", eventDate: DATE2, startTime: "09:00", endTime: "12:00" })).status, 400);
+});
+
+test("only admins edit prices; new prices apply to new requests only; quotes record discounts", async () => {
+  const { DEFAULT_CATALOG } = await import("../lib/catalog");
+  const edited = { ...DEFAULT_CATALOG, packages: DEFAULT_CATALOG.packages.map((p) => (p.id === "standard" ? { ...p, price: 110000, inclusions: ["Baraat coverage"] } : p)), addons: [] };
+  session = { userId: null, admin: false };
+  assert.equal((await putCatalog(edited)).status, 401);
+  session = { userId: "user_customer", admin: false };
+  assert.equal((await putCatalog(edited)).status, 403);
+  session = { userId: "user_owner", admin: true };
+  assert.equal((await putCatalog({ ...edited, packages: edited.packages.slice(0, 2) })).status, 400, "all three packages required");
+  assert.equal((await putCatalog({ ...edited, packages: edited.packages.map((p) => ({ ...p, price: -5 })) })).status, 400);
+  assert.equal((await putCatalog(edited)).status, 200);
+
+  const before = await prisma.booking.findFirstOrThrow({ where: { names: "Hina & Saad" } });
+  assert.equal(before.packagePrice, 150000, "existing requests keep their price");
+
+  session = { userId: null, admin: false };
+  const r = await post(wedding({ packageId: "standard", names: "Price Check", functions: [{ type: "nikah", eventDate: DATE2, startTime: "08:00", endTime: "10:00" }] }));
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal(r.json.estimate.total, 110000);
+
+  session = { userId: "user_owner", admin: true };
+  assert.equal((await act(r.json.booking.id, { action: "set_quote", quotedAmount: 95000, advanceAmount: 30000, note: "Agreed on WhatsApp" })).status, 200);
+  const q = await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id }, include: { events: true } });
+  assert.equal(q.quotedAmount, 95000);
+  assert.equal(q.estimatedTotal, 110000);
+  assert.equal(q.status, "pending", "a quote doesn't confirm the booking");
+  assert.ok(q.events.some((e) => /discount of PKR 15,000/.test(e.message) && /Agreed on WhatsApp/.test(e.message)));
+});

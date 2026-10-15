@@ -6,6 +6,9 @@ import { getSettings } from "@/lib/settings";
 import { SERVICES } from "@/lib/booking-rules";
 import { isHeld } from "@/lib/booking-status";
 import { formatInstant, formatPkr } from "@/lib/notify";
+import { findOverlaps } from "@/lib/booking-availability";
+import { EVENT_TYPES, WEDDING_FUNCTIONS } from "@/lib/enquiry";
+import { waLink } from "@/lib/film-family";
 import { BookingActions } from "@/components/admin/BookingActions";
 import { PaymentReview } from "@/components/admin/PaymentReview";
 import { EmptyState, PaymentBadge, PaymentRecordBadge, StatusBadge } from "@/components/admin/Badges";
@@ -18,7 +21,11 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const [b, settings] = await Promise.all([
     prisma.booking.findUnique({
       where: { id },
-      include: { payments: { orderBy: { createdAt: "desc" } }, events: { orderBy: { createdAt: "desc" } } }
+      include: {
+        payments: { orderBy: { createdAt: "desc" } },
+        events: { orderBy: { createdAt: "desc" } },
+        functions: { orderBy: { sortOrder: "asc" } }
+      }
     }),
     getSettings()
   ]);
@@ -27,19 +34,13 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
   const now = new Date();
   const held = isHeld(b, now);
   const service = SERVICES[b.serviceType as keyof typeof SERVICES];
-  const overlapping =
-    b.blockStart && b.blockEnd && (b.status === "pending" || b.status === "confirmed")
-      ? await prisma.booking.findMany({
-          where: {
-            id: { not: b.id },
-            teamId: b.teamId,
-            blockStart: { lt: b.blockEnd },
-            blockEnd: { gt: b.blockStart },
-            status: { in: ["pending", "confirmed", "completed"] }
-          },
-          select: { id: true, names: true, status: true, startTime: true, endTime: true, holdExpiresAt: true }
-        })
-      : [];
+  const overlapping = b.status === "pending" || b.status === "confirmed" ? await findOverlaps(b) : [];
+  let addons: { name: string; price: number }[] = [];
+  try {
+    addons = b.addonsJson ? JSON.parse(b.addonsJson) : [];
+  } catch {
+    addons = [];
+  }
   const verified = b.payments.filter((p) => p.status === "verified").reduce((n, p) => n + p.amount, 0);
 
   return (
@@ -72,7 +73,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
                 <Link href={`/admin/bookings/${o.id}`} className="underline-offset-2 hover:underline">
                   {o.names}
                 </Link>{" "}
-                · {o.startTime}–{o.endTime} · {isHeld(o, now) ? "on hold" : o.status}
+                · {o.when} · {isHeld(o, now) ? "on hold" : o.status}
               </li>
             ))}
           </ul>
@@ -88,11 +89,59 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         quotedAmount={b.quotedAmount}
         advanceAmount={b.advanceAmount}
         defaultAdvancePercent={settings.advance.defaultPercent}
+        estimatedTotal={b.estimatedTotal}
       />
+
+      {b.kind !== "general" ? (
+        <section className="rounded-2xl border border-zh-gold/25 bg-zh-gold/[0.03] p-5">
+          <h2 className="mb-3 text-[11px] uppercase tracking-[0.3em] text-zh-gold/80">
+            {b.kind === "wedding_package" ? "Package selection" : "Event enquiry"}
+          </h2>
+          <dl className="space-y-2 text-sm">
+            {b.packageName ? <Row label="Package">{b.packageName} · {formatPkr(b.packagePrice)} (price when requested)</Row> : null}
+            {b.eventType ? <Row label="Event type">{EVENT_TYPES[b.eventType as keyof typeof EVENT_TYPES]?.label ?? b.eventType}</Row> : null}
+            <Row label="Add-ons">{addons.length ? addons.map((x) => `${x.name} (${formatPkr(x.price)})`).join(", ") : "None"}</Row>
+            {b.estimatedTotal != null ? <Row label="Estimate">{formatPkr(b.estimatedTotal)} — computed on the server</Row> : null}
+            <Row label="Agreed quote">
+              {b.quotedAmount != null ? (
+                <>
+                  {formatPkr(b.quotedAmount)}
+                  {b.estimatedTotal != null && b.quotedAmount !== b.estimatedTotal
+                    ? b.quotedAmount < b.estimatedTotal
+                      ? ` (discount ${formatPkr(b.estimatedTotal - b.quotedAmount)})`
+                      : ` (${formatPkr(b.quotedAmount - b.estimatedTotal)} above estimate)`
+                    : ""}
+                </>
+              ) : (
+                "Not set — the customer sees the advertised estimate only"
+              )}
+            </Row>
+            {b.budget ? <Row label="Budget / deal">{b.budget}</Row> : null}
+            <Row label="Custom deal">{b.customDealRequested ? "Requested" : "No"}</Row>
+            <Row label="WhatsApp">{b.whatsappRequested ? "Customer chose to continue on WhatsApp" : "Not requested"}</Row>
+          </dl>
+        </section>
+      ) : null}
+
+      {b.functions.length ? (
+        <section className="space-y-3">
+          <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Functions ({b.functions.length})</h2>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {b.functions.map((f) => (
+              <li key={f.id} className="rounded-xl border border-white/10 bg-black/40 p-4 text-sm">
+                <p className="text-white">{WEDDING_FUNCTIONS[f.type as keyof typeof WEDDING_FUNCTIONS]?.label ?? f.type}</p>
+                <p className="text-zinc-400">
+                  {f.eventDate} · {f.startTime}–{f.endTime} PKT{f.venue ? ` · ${f.venue}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Event">
-          <Row label="Service">{service?.label ?? b.serviceType}</Row>
+          <Row label="Service">{b.packageName ?? service?.label ?? b.serviceType}</Row>
           <Row label="Date">{b.eventDate}</Row>
           <Row label="Time">{b.startTime ? `${b.startTime}–${b.endTime} (Pakistan time)` : "Full day"}</Row>
           {service ? (
@@ -109,9 +158,13 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
         <Card title="Client">
           <Row label="Name">{b.names}</Row>
           <Row label="Email">
-            <a href={`mailto:${b.email}`} className="text-zh-gold hover:underline">
-              {b.email}
-            </a>
+            {b.email ? (
+              <a href={`mailto:${b.email}`} className="text-zh-gold hover:underline">
+                {b.email}
+              </a>
+            ) : (
+              <span className="text-zinc-500">Not given</span>
+            )}
           </Row>
           <Row label="Phone">
             <a href={`tel:${b.phone}`} className="text-zh-gold hover:underline">
@@ -119,7 +172,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
             </a>{" "}
             ·{" "}
             <a
-              href={`https://wa.me/${b.phone.replace(/\D/g, "")}`}
+              href={waLink(`Assalam o Alaikum ${b.names}, this is ZH Films about your request ${b.confirmationCode}.`, b.phone)}
               target="_blank"
               rel="noreferrer"
               className="text-zh-gold hover:underline"

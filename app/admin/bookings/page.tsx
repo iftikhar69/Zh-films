@@ -1,3 +1,4 @@
+import { EVENT_TYPES } from "@/lib/enquiry";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -8,9 +9,21 @@ import { BOOKING_STATUSES, PAYMENT_STATUSES, bookingStatusLabel, paymentStatusLa
 
 export const dynamic = "force-dynamic";
 
-type Search = { q?: string; status?: string; service?: string; payment?: string; from?: string; to?: string; when?: string };
+type Search = { q?: string; status?: string; kind?: string; service?: string; payment?: string; from?: string; to?: string; when?: string };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const KINDS = [
+  { value: "wedding_package", label: "Wedding packages" },
+  { value: "event", label: "Event enquiries" },
+  { value: "general", label: "Other requests" }
+];
+
+function what(b: { packageName: string | null; eventType: string | null; serviceType: string }) {
+  if (b.packageName) return b.packageName.replace(" Wedding Package", "");
+  if (b.eventType) return EVENT_TYPES[b.eventType as keyof typeof EVENT_TYPES]?.label ?? b.eventType;
+  return SERVICES[b.serviceType as keyof typeof SERVICES]?.label.split(" (")[0] ?? b.serviceType;
+}
 
 export default async function BookingsPage({ searchParams }: { searchParams: Promise<Search> }) {
   await adminPageGuard("/admin/bookings");
@@ -33,6 +46,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   }
   if (sp.status === "held") and.push({ status: "pending", holdExpiresAt: { gt: now } });
   else if (sp.status && (BOOKING_STATUSES as readonly string[]).includes(sp.status)) and.push({ status: sp.status });
+  if (sp.kind && KINDS.some((k) => k.value === sp.kind)) and.push({ kind: sp.kind });
   if (sp.service && (SERVICE_TYPES as readonly string[]).includes(sp.service)) and.push({ serviceType: sp.service });
   if (sp.payment && (PAYMENT_STATUSES as readonly string[]).includes(sp.payment)) and.push({ paymentStatus: sp.payment });
   if (sp.from && DATE_RE.test(sp.from)) and.push({ eventDate: { gte: sp.from } });
@@ -43,12 +57,13 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
     prisma.booking.findMany({
       where,
       orderBy: sp.when === "upcoming" ? [{ startsAt: "asc" }] : [{ createdAt: "desc" }],
-      take: 200
+      take: 200,
+      include: { _count: { select: { functions: true } } }
     }),
     prisma.booking.count()
   ]);
 
-  const filtered = Boolean(q || sp.status || sp.service || sp.payment || sp.from || sp.to || sp.when);
+  const filtered = Boolean(q || sp.status || sp.kind || sp.service || sp.payment || sp.from || sp.to || sp.when);
   const input =
     "h-10 rounded-lg border border-white/10 bg-black/60 px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-zh-gold/50 focus:outline-none";
 
@@ -71,6 +86,14 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
           {BOOKING_STATUSES.map((s) => (
             <option key={s} value={s}>
               {bookingStatusLabel(s)}
+            </option>
+          ))}
+        </select>
+        <select name="kind" defaultValue={sp.kind ?? ""} aria-label="Enquiry type" className={input}>
+          <option value="">All enquiry types</option>
+          {KINDS.map((k) => (
+            <option key={k.value} value={k.value}>
+              {k.label}
             </option>
           ))}
         </select>
@@ -125,8 +148,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                     <StatusBadge status={b.status} holdExpiresAt={b.holdExpiresAt} />
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
-                    {SERVICES[b.serviceType as keyof typeof SERVICES]?.label.split(" (")[0] ?? b.serviceType} · {b.eventDate}
-                    {b.startTime ? ` · ${b.startTime}–${b.endTime}` : ""}
+                    {what(b)} · {b.eventDate}
+                    {b._count.functions > 1 ? ` + ${b._count.functions - 1} more` : b.startTime ? ` · ${b.startTime}–${b.endTime}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
                     {b.city} · {b.phone}
@@ -161,10 +184,13 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                       <p className="text-xs text-zinc-500">{b.email}</p>
                     </td>
                     <td className="px-4 py-3 text-zinc-300">
-                      {SERVICES[b.serviceType as keyof typeof SERVICES]?.label.split(" (")[0] ?? b.serviceType}
+                      {what(b)}
+                      {b.estimatedTotal != null ? <p className="text-xs text-zh-gold/80">Est. PKR {b.estimatedTotal.toLocaleString("en-PK")}</p> : null}
+                      {b.whatsappRequested ? <p className="text-xs text-emerald-300/80">Via WhatsApp</p> : null}
                     </td>
                     <td className="px-4 py-3 text-zinc-300">
                       {b.eventDate}
+                      {b._count.functions > 1 ? <span className="text-xs text-zinc-500"> + {b._count.functions - 1} more</span> : null}
                       <p className="text-xs text-zinc-500">
                         {b.startTime ? `${b.startTime}–${b.endTime}` : "Full day"} · {b.city}
                       </p>

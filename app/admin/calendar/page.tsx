@@ -1,3 +1,4 @@
+import { WEDDING_FUNCTIONS } from "@/lib/enquiry";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { adminPageGuard } from "@/lib/admin-guard";
@@ -24,14 +25,34 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
   const firstWeekday = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
   const now = new Date();
 
-  const rows = await prisma.booking.findMany({
-    where: {
-      eventDate: { gte: `${month}-01`, lte: `${month}-${String(daysInMonth).padStart(2, "0")}` },
-      OR: [{ status: { in: ["confirmed", "completed"] } }, { status: "pending", holdExpiresAt: { gt: now } }]
-    },
-    orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
-    select: { id: true, names: true, eventDate: true, startTime: true, endTime: true, status: true, holdExpiresAt: true }
-  });
+  const range = { gte: `${month}-01`, lte: `${month}-${String(daysInMonth).padStart(2, "0")}` };
+  const blocking = { OR: [{ status: { in: ["confirmed", "completed"] } }, { status: "pending", holdExpiresAt: { gt: now } }] };
+  const [single, fns] = await Promise.all([
+    prisma.booking.findMany({
+      where: { eventDate: range, functions: { none: {} }, ...blocking },
+      select: { id: true, names: true, eventDate: true, startTime: true, endTime: true, status: true, holdExpiresAt: true }
+    }),
+    prisma.bookingFunction.findMany({
+      where: { eventDate: range, booking: blocking },
+      select: {
+        type: true,
+        eventDate: true,
+        startTime: true,
+        endTime: true,
+        booking: { select: { id: true, names: true, status: true, holdExpiresAt: true } }
+      }
+    })
+  ]);
+  const rows = [
+    ...single,
+    ...fns.map((f) => ({
+      ...f.booking,
+      names: `${f.booking.names} · ${WEDDING_FUNCTIONS[f.type as keyof typeof WEDDING_FUNCTIONS]?.label ?? f.type}`,
+      eventDate: f.eventDate,
+      startTime: f.startTime as string | null,
+      endTime: f.endTime as string | null
+    }))
+  ].sort((a, b) => a.eventDate.localeCompare(b.eventDate) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const byDay = new Map<string, typeof rows>();
   for (const r of rows) byDay.set(r.eventDate, [...(byDay.get(r.eventDate) ?? []), r]);
 
@@ -68,7 +89,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
               {day ? <p className={cn("text-xs", date === today ? "text-zh-gold" : "text-zinc-500")}>{day}</p> : null}
               <ul className="mt-1 space-y-1">
                 {items.map((b) => (
-                  <li key={b.id}>
+                  <li key={`${b.id}-${b.eventDate}-${b.startTime}`}>
                     <Link
                       href={`/admin/bookings/${b.id}`}
                       className={cn(
@@ -93,7 +114,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Pro
       <ul className="space-y-2 md:hidden">
         {rows.length === 0 ? <li className="text-sm text-zinc-500">Nothing confirmed or held in {label}.</li> : null}
         {rows.map((b) => (
-          <li key={b.id}>
+          <li key={`${b.id}-${b.eventDate}-${b.startTime}`}>
             <Link href={`/admin/bookings/${b.id}`} className="flex justify-between gap-3 rounded-xl border border-white/10 bg-black/40 p-3 text-sm">
               <span>
                 <span className="block text-white">{b.names}</span>
