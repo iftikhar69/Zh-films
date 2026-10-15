@@ -109,6 +109,19 @@ Alternative: list verified emails in `ADMIN_EMAILS`. To remove access: `npm run 
 - **Payments** — submitted / verified / rejected tabs; verify or reject (with reason). Records who decided and when.
 - **Settings** — Easypaisa and bank instructions, advance rules, hold length, notification email and reminder timings, policies; email log.
 
+- **Packages** (`/admin/packages`) — edit names, prices, descriptions, inclusions, exclusions and add-ons, and enable/disable each. Stored in the `Setting` row `catalog`. Inclusions start empty on purpose: fill them in before advertising them.
+
+## Wedding packages, event bookings and WhatsApp deals
+
+- Three packages (Standard PKR 100,000, Premium PKR 150,000, Advance Premium PKR 200,000) are shown on the homepage and on `/book`.
+- `/book/wedding?package=standard|premium|advance-premium` is a four-step form: up to 6 functions (each with its own date, time and venue), coverage, add-ons, budget and contact details. Email is optional, the draft survives going back, and a live estimate is shown.
+- `/book/event` books Nikah, Engagement, Birthday, Corporate, Custom shoot or Other in advance. The server checks availability and the form says "subject to confirmation".
+- Every function slot is stored in `BookingFunction` and counts toward availability, so a conflicting booking can't be confirmed.
+- The server always recomputes the total from the catalog; it never trusts a total sent by the browser. Admins set the final quote, and the discount against the estimate is logged.
+- "Discuss a deal on WhatsApp" saves the enquiry first, then opens `wa.me/<NEXT_PUBLIC_WHATSAPP>` with an encoded summary. The summary contains no internal notes or payment details. Opening WhatsApp does not book or confirm a date.
+
+Migration: the schema changes only add fields, so run `npx prisma db push` (the Netlify build already does this).
+
 ## Booking flow and availability
 
 `/book` works without an account: service, location, date, start/end time, requirements and contact. Drafts are saved in the browser session, `?service=wedding|nikah|event|shoot|photography|videography` pre-selects a service, and every submission carries an idempotency key so double clicks or retries never create duplicates.
