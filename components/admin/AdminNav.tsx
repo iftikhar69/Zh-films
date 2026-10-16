@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ClipboardList, Inbox, LayoutDashboard, Package, Settings, Wallet } from "lucide-react";
+import { Camera, CalendarDays, ClipboardList, Images, Inbox, LayoutDashboard, Package, Settings, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -11,6 +11,8 @@ const LINKS = [
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/payments", label: "Payments", icon: Wallet },
   { href: "/admin/packages", label: "Packages", icon: Package },
+  { href: "/admin/galleries", label: "Family galleries", icon: Images },
+  { href: "/admin/gear", label: "Equipment", icon: Camera },
   { href: "/admin/inquiries", label: "Enquiries", icon: Inbox },
   { href: "/admin/settings", label: "Settings", icon: Settings }
 ];

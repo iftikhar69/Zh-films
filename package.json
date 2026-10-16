@@ -15,7 +15,8 @@
     "test:workflow": "tsx --env-file=.env --test --experimental-test-module-mocks tests/workflow.integration.ts",
     "build:netlify": "prisma generate && prisma migrate deploy && next build",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "test:galleries": "tsx --env-file=.env --test --experimental-test-module-mocks tests/galleries.integration.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -36,6 +37,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.56.4",
+    "sharp": "0.34.5",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.2.0",
     "zod": "^3.25.76",

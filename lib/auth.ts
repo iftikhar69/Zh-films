@@ -41,6 +41,14 @@ export async function requireAdmin() {
   return { ok: true as const, user, userId, actor };
 }
 
+/** For admin route handlers: either the admin, or the 401/403 response to return. */
+export async function adminGate() {
+  const gate = await requireAdmin();
+  if (gate.ok) return { ok: true as const, actor: gate.actor };
+  const status = gate.reason === "Admin access only" ? 403 : 401;
+  return { ok: false as const, response: Response.json({ ok: false, error: gate.reason }, { status }) };
+}
+
 export async function isAdminUser() {
   const r = await requireAdmin();
   return r.ok;

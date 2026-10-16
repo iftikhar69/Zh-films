@@ -78,6 +78,11 @@ export async function signedUrls(bucket: Bucket, paths: string[], expiresIn = 36
   });
 }
 
+export async function downloadObject(bucket: Bucket, path: string) {
+  const res = await call(`/object/authenticated/${bucket}/${checkPath(path)}`, { method: "GET" });
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export function publicUrl(path: string) {
   return `${config().url}/storage/v1/object/public/public-previews/${checkPath(path)}`;
 }
