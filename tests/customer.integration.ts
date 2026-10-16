@@ -120,8 +120,13 @@ test("/api/me: a customer sees only their own bookings and active galleries, and
   assert.equal(b.json.galleries, 0);
   assert.equal((b.json.next as { confirmationCode: string }).confirmationCode, "ZH-B1");
 
+  assert.equal(r.json.office, undefined, "customers never receive office counts");
+
   session = ADMIN;
-  assert.equal((await call(GET)).json.isAdmin, true);
+  const admin = await call(GET);
+  assert.equal(admin.json.isAdmin, true);
+  assert.deepEqual(Object.keys(admin.json.office as object).sort(), ["paymentsToVerify", "pending", "upcoming"]);
+  assert.equal((admin.json.office as { pending: number }).pending, 2, "both seeded requests are pending");
 });
 
 test("/api/me: an unverified email claims no bookings and sees no galleries", async () => {

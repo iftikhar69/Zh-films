@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuth, useUser } from "@clerk/nextjs";
-import { ArrowRight, CalendarHeart, Heart, Images, LayoutDashboard, Plus } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarHeart, ClipboardList, Heart, Images, LayoutDashboard, Plus, Wallet } from "lucide-react";
 import { useMe } from "@/components/auth/use-me";
 import { useFavoriteCount } from "@/stores/favorites-store";
 import { bookingStatusLabel } from "@/lib/booking-status";
@@ -23,6 +23,7 @@ export function CustomerWelcomeInner() {
   if (!isSignedIn) return null;
 
   const name = me?.firstName ?? user?.firstName ?? null;
+  if (me?.isAdmin) return <OfficeDesk name={name} office={me.office} />;
   const next = me?.next ?? null;
   const days = next ? daysUntil(next.eventDate) : null;
 
@@ -92,5 +93,47 @@ function DeskLink({ href, icon, label, count, highlight }: { href: string; icon:
       <span className="flex-1">{label}</span>
       {count != null ? <span className={`font-mono text-xs ${highlight ? "text-zh-gold" : "text-zinc-500"}`}>{count}</span> : null}
     </Link>
+  );
+}
+
+function OfficeDesk({ name, office }: { name: string | null; office?: { pending: number; paymentsToVerify: number; upcoming: number } }) {
+  const tiles = [
+    { label: "Requests to review", value: office?.pending, href: "/admin/bookings?status=pending", icon: ClipboardList, alert: (office?.pending ?? 0) > 0 },
+    { label: "Payments to verify", value: office?.paymentsToVerify, href: "/admin/payments", icon: Wallet, alert: (office?.paymentsToVerify ?? 0) > 0 },
+    { label: "Confirmed · next 30 days", value: office?.upcoming, href: "/admin/calendar", icon: CalendarCheck, alert: false }
+  ];
+  return (
+    <section aria-label="Production Office" data-testid="office-desk" className="relative z-10 border-y border-zh-gold/25 bg-[radial-gradient(ellipse_at_top_left,rgba(200,169,106,0.12),transparent_60%),linear-gradient(to_bottom,#0b0b0f,#000)]">
+      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1fr_1.6fr] lg:items-center lg:py-10">
+        <div>
+          <p className="inline-flex items-center gap-2 rounded-full border border-zh-gold/40 px-3 py-1 text-[10px] uppercase tracking-[0.35em] text-zh-gold">
+            <LayoutDashboard className="h-3.5 w-3.5" /> Owner · Admin
+          </p>
+          <h2 className="mt-3 font-serif text-3xl text-white sm:text-4xl">{name ? `Welcome back, ${name}` : "Welcome back"}</h2>
+          <p className="mt-2 text-sm text-zinc-400">You&apos;re viewing the public website. Today&apos;s work is waiting in the Production Office.</p>
+          <Link
+            href="/admin"
+            className="mt-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-zh-gold to-[#d9bd84] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.2em] text-black transition hover:brightness-110"
+          >
+            Open Production Office <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {tiles.map(({ label, value, href, icon: Icon, alert }) => (
+            <Link
+              key={label}
+              href={href}
+              className={`group rounded-2xl border p-5 transition ${alert ? "border-zh-gold/50 bg-zh-gold/[0.07]" : "border-white/10 bg-black/40"} hover:border-zh-gold/70`}
+            >
+              <Icon className={`h-5 w-5 ${alert ? "text-zh-gold" : "text-zinc-500"}`} />
+              <p className="mt-4 font-serif text-4xl text-white">{value ?? "—"}</p>
+              <p className="mt-1 flex items-center justify-between text-xs text-zinc-400">
+                {label} <ArrowRight className="h-3.5 w-3.5 opacity-0 transition group-hover:opacity-100" />
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

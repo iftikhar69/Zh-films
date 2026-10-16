@@ -73,7 +73,23 @@ function AccountMenu() {
   }, [open]);
 
   const name = me?.firstName ?? user?.firstName ?? "Account";
+  const todo = me?.office ? me.office.pending + me.office.paymentsToVerify : 0;
   return (
+    <div className="flex items-center gap-1.5">
+    {me?.isAdmin ? (
+      <Link
+        href="/admin"
+        data-testid="nav-admin"
+        className="relative inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-gradient-to-r from-zh-gold to-[#d9bd84] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-black shadow-[0_0_24px_rgba(200,169,106,0.25)] transition hover:brightness-110"
+      >
+        <LayoutDashboard className="h-3.5 w-3.5" /> Production Office
+        {todo ? (
+          <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-bold tracking-normal text-white">
+            {todo > 99 ? "99+" : todo}
+          </span>
+        ) : null}
+      </Link>
+    ) : null}
     <div ref={ref} className="relative">
       <button
         type="button"
@@ -92,7 +108,10 @@ function AccountMenu() {
           <div className="flex items-center gap-3 px-3 py-3">
             <Avatar size={36} />
             <div className="min-w-0">
-              <p className="truncate text-sm text-white">{user?.fullName || name}</p>
+              <p className="truncate text-sm text-white">
+                {user?.fullName || name}
+                {me?.isAdmin ? <span className="ml-2 rounded-full border border-zh-gold/40 px-1.5 py-0.5 align-middle text-[9px] uppercase tracking-[0.2em] text-zh-gold">Admin</span> : null}
+              </p>
               <p className="truncate text-xs text-zinc-500">{user?.primaryEmailAddress?.emailAddress}</p>
             </div>
           </div>
@@ -147,6 +166,7 @@ function AccountMenu() {
         </div>
       ) : null}
     </div>
+    </div>
   );
 }
 
@@ -164,6 +184,22 @@ function AccountList({ onNavigate }: { onNavigate: () => void }) {
           <p className="truncate text-xs text-zinc-500">{user?.primaryEmailAddress?.emailAddress}</p>
         </div>
       </div>
+      {me?.isAdmin ? (
+        <Link
+          href="/admin"
+          onClick={onNavigate}
+          className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-zh-gold to-[#d9bd84] px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-black"
+        >
+          <span className="flex items-center gap-2">
+            <LayoutDashboard className="h-4 w-4" /> Production Office
+          </span>
+          {me.office && me.office.pending + me.office.paymentsToVerify > 0 ? (
+            <span className="rounded-full bg-black/80 px-2 py-0.5 text-[10px] tracking-normal text-zh-gold">
+              {me.office.pending + me.office.paymentsToVerify} to review
+            </span>
+          ) : null}
+        </Link>
+      ) : null}
       <ul className="grid grid-cols-2 gap-2">
         {links.slice(1).map(({ href, label, icon: Icon, count }) => (
           <li key={href}>
@@ -173,13 +209,6 @@ function AccountList({ onNavigate }: { onNavigate: () => void }) {
             </Link>
           </li>
         ))}
-        {me?.isAdmin ? (
-          <li>
-            <Link href="/admin" onClick={onNavigate} className="flex items-center gap-2 rounded-xl border border-zh-gold/40 px-3 py-2.5 text-xs text-zh-gold">
-              <LayoutDashboard className="h-4 w-4" /> Dashboard
-            </Link>
-          </li>
-        ) : null}
         <li>
           <button type="button" onClick={() => void signOut({ redirectUrl: "/" })} className="flex w-full items-center gap-2 rounded-xl border border-white/10 px-3 py-2.5 text-xs text-zinc-400">
             <LogOut className="h-4 w-4" /> Sign out

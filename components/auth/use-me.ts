@@ -10,6 +10,8 @@ export type Me = {
   bookings?: number;
   galleries?: number;
   next?: { confirmationCode: string; eventDate: string; status: string; packageName: string | null } | null;
+  /** Only sent to admins. */
+  office?: { pending: number; paymentsToVerify: number; upcoming: number };
 };
 
 const cache = new Map<string, Promise<Me | null>>();
