@@ -17,7 +17,7 @@ async function itemExists(type: FavoriteType, id: string) {
     case "gallery":
       return Boolean(await prisma.galleryItem.findUnique({ where: { id }, select: { id: true } }));
     case "crew":
-      return Boolean(await prisma.crewMember.findUnique({ where: { id }, select: { id: true } }));
+      return Boolean(await prisma.crewMember.findFirst({ where: { id, published: true }, select: { id: true } }));
     case "gear":
       return Boolean(await prisma.gearItem.findFirst({ where: { id, status: { in: PUBLIC_GEAR_STATUSES } }, select: { id: true } }));
   }
@@ -28,7 +28,7 @@ async function buildCards(rows: { itemType: string; itemId: string; createdAt: D
   const [reels, gallery, crew, gear] = await Promise.all([
     prisma.reel.findMany({ where: { id: { in: ids("reel") } } }),
     prisma.galleryItem.findMany({ where: { id: { in: ids("gallery") } } }),
-    prisma.crewMember.findMany({ where: { id: { in: ids("crew") } } }),
+    prisma.crewMember.findMany({ where: { id: { in: ids("crew") }, published: true } }),
     prisma.gearItem.findMany({ where: { id: { in: ids("gear") }, status: { in: PUBLIC_GEAR_STATUSES } } })
   ]);
 

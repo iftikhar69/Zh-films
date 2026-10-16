@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:seed": "prisma db seed",
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
+    "import:drive": "tsx --conditions=react-server --env-file=.env scripts/import-drive.ts",
     "admin:grant": "tsx --env-file=.env scripts/grant-admin.ts",
     "reminders": "tsx --env-file=.env scripts/run-reminders.ts",
     "test:workflow": "tsx --env-file=.env --test --experimental-test-module-mocks tests/workflow.integration.ts",

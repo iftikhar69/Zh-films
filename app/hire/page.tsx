@@ -13,7 +13,7 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function HirePage() {
-  const crew = await prisma.crewMember.findMany({ orderBy: { sortOrder: "asc" } });
+  const crew = await prisma.crewMember.findMany({ where: { published: true }, orderBy: [{ featured: "desc" }, { sortOrder: "asc" }] });
   return (
     <>
       <JsonLd

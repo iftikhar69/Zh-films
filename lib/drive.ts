@@ -27,7 +27,11 @@ export async function listPublicFolder(folderId: string) {
     throw new Error("This Drive folder isn't shared as “Anyone with the link”, so it can't be listed. Upload the photos directly instead.");
   }
   if (!res.ok) throw new Error(`Google Drive returned ${res.status}`);
-  return parseFolderListing(await res.text());
+  const files = parseFolderListing(await res.text());
+  if (!files.length) {
+    throw new Error("No JPG, PNG or WebP images were found. Check the folder is shared as “Anyone with the link” and the photos are directly inside it, not in sub-folders.");
+  }
+  return files;
 }
 
 export async function downloadPublicFile(fileId: string) {

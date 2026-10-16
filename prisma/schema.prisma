@@ -267,6 +267,11 @@ model CrewMember {
   email     String?
   featured  Boolean @default(false)
   sortOrder Int     @default(0)
+  /// Hidden members stay in the database for past hire requests but are not listed.
+  published Boolean @default(true)
+  /// Drive file id for imported team photos, so re-running the import updates instead of duplicating.
+  sourceId   String?  @unique
+  imagePaths String[] @default([])
 }
 
 model GearItem {

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
       orderBy: { views: "desc" }
     }),
     prisma.crewMember.findMany({
-      where: { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { title: { contains: q, mode: "insensitive" as const } }, { role: { contains: q, mode: "insensitive" as const } }] },
+      where: { published: true, OR: [{ name: { contains: q, mode: "insensitive" as const } }, { title: { contains: q, mode: "insensitive" as const } }, { role: { contains: q, mode: "insensitive" as const } }] },
       take: 4
     }),
     prisma.gearItem.findMany({
