@@ -11,6 +11,9 @@ const img = (seed: string) => `https://picsum.photos/seed/${seed}/1200/675`;
 const photo = (i: number) => igPhotos[i % igPhotos.length];
 
 async function main() {
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== "1") {
+    throw new Error("The seed wipes bookings and content. Set ALLOW_DESTRUCTIVE_SEED=1 to run it on a throwaway database.");
+  }
   await prisma.favorite.deleteMany();
   await prisma.review.deleteMany();
   await prisma.sellInquiry.deleteMany();

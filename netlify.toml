@@ -1,17 +1,16 @@
-# Test/preview deploy. SQLite is seeded at build time and copied to /tmp at
-# runtime, so bookings made here are temporary. Use Postgres for production.
+# DATABASE_URL, DIRECT_URL, SUPABASE_URL and SUPABASE_SECRET_KEY come from the
+# Netlify site environment variables (Supabase Postgres + Storage).
 [build]
   command = "npm run build:netlify"
   publish = ".next"
 
 [build.environment]
   NODE_VERSION = "22"
-  DATABASE_URL = "file:./preview.db"
   # NEXT_PUBLIC_* values are shipped to the browser by design; real secrets stay scanned.
-  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SITE_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,NEXT_PUBLIC_CONTACT_EMAIL,NEXT_PUBLIC_WHATSAPP,NEXT_PUBLIC_INSTAGRAM_URL,NEXT_PUBLIC_FACEBOOK_URL,NEXT_PUBLIC_HERO_VIDEO_URL,NEXT_PUBLIC_HERO_POSTER_URL"
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SITE_URL,NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,NEXT_PUBLIC_CONTACT_EMAIL,NEXT_PUBLIC_WHATSAPP,NEXT_PUBLIC_INSTAGRAM_URL,NEXT_PUBLIC_FACEBOOK_URL,NEXT_PUBLIC_HERO_VIDEO_URL,NEXT_PUBLIC_HERO_POSTER_URL,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
 [functions]
-  included_files = ["prisma/preview.db", "node_modules/.prisma/client/*.node"]
+  included_files = ["node_modules/.prisma/client/*.node"]

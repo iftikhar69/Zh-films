@@ -9,7 +9,7 @@ everything with ⌘K, hire crew, rent or buy gear, and book a date — all backe
 - Next.js 16 (App Router) + TypeScript + React 19
 - Tailwind CSS 4, shadcn/ui-style primitives (Dialog, Button, Input, Command, Sonner)
 - Framer Motion 12 + Lenis smooth scroll
-- Prisma + SQLite
+- Prisma + Postgres (Supabase), Supabase Storage for images
 - Zustand, React Hook Form + Zod
 - Clerk (optional) for sign-in and the admin desk
 
@@ -18,8 +18,8 @@ everything with ⌘K, hire crew, rent or buy gear, and book a date — all backe
 ```bash
 cp .env.example .env
 npm install
-npx prisma db push
-npm run db:seed
+# put your Supabase DATABASE_URL / DIRECT_URL in .env first
+npm run db:deploy
 npm run dev -- -p 4317
 ```
 
@@ -120,7 +120,7 @@ Alternative: list verified emails in `ADMIN_EMAILS`. To remove access: `npm run 
 - The server always recomputes the total from the catalog; it never trusts a total sent by the browser. Admins set the final quote, and the discount against the estimate is logged.
 - "Discuss a deal on WhatsApp" saves the enquiry first, then opens `wa.me/<NEXT_PUBLIC_WHATSAPP>` with an encoded summary. The summary contains no internal notes or payment details. Opening WhatsApp does not book or confirm a date.
 
-Migration: the schema changes only add fields, so run `npx prisma db push` (the Netlify build already does this).
+Migrations live in `prisma/migrations`. Create one with `npm run db:migrate`; Netlify runs `prisma migrate deploy` on every build. `npm run db:seed` wipes content and only runs with `ALLOW_DESTRUCTIVE_SEED=1` on a throwaway database.
 
 ## Booking flow and availability
 
@@ -163,7 +163,7 @@ No payment gateway. The owner sets a quote and advance on a booking; the custome
 
 A submission only moves payment status to **submitted**. Only an admin can verify (after ticking “I checked my account”) or reject it, and payment status never changes the booking status. Never ask customers for PINs, passwords or OTPs.
 
-Hosting note: SQLite and local receipt storage need a server with a persistent disk (Docker/VPS). On serverless hosting, move to Postgres and object storage first.
+Hosting note: data lives in Supabase Postgres, so redeploys and restarts no longer wipe it. Payment receipts are still written to local disk; they move to Supabase Storage next.
 
 ## Hero video
 

@@ -11,7 +11,13 @@ import { createRequire } from "node:module";
 import { pathToFileURL } from "node:url";
 
 const dir = mkdtempSync(path.join(tmpdir(), "zh-workflow-"));
-process.env.DATABASE_URL = `file:${path.join(dir, "test.db")}`;
+const baseUrl = process.env.TEST_DATABASE_URL ?? process.env.DIRECT_URL;
+if (!baseUrl) throw new Error("Set DIRECT_URL (or TEST_DATABASE_URL) to a Postgres database for the workflow tests.");
+const testSchema = `wf_${Date.now().toString(36)}`;
+const testUrl = new URL(baseUrl);
+testUrl.searchParams.set("schema", testSchema);
+process.env.DATABASE_URL = testUrl.toString();
+process.env.DIRECT_URL = testUrl.toString();
 process.env.RECEIPTS_DIR = path.join(dir, "receipts");
 process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_x";
 process.env.CLERK_SECRET_KEY = "sk_test_x";
@@ -71,6 +77,7 @@ before(async () => {
 });
 
 after(async () => {
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${testSchema}" CASCADE`);
   await prisma.$disconnect();
   server.close();
 });

@@ -8,13 +8,14 @@
     "start": "next start",
     "lint": "eslint .",
     "postinstall": "prisma generate",
-    "db:push": "prisma db push",
     "db:seed": "prisma db seed",
     "test": "tsx --test tests/*.test.ts",
     "admin:grant": "tsx --env-file=.env scripts/grant-admin.ts",
     "reminders": "tsx --env-file=.env scripts/run-reminders.ts",
-    "test:workflow": "tsx --test --experimental-test-module-mocks tests/workflow.integration.ts",
-    "build:netlify": "prisma generate && prisma db push --skip-generate && prisma db seed && next build"
+    "test:workflow": "tsx --env-file=.env --test --experimental-test-module-mocks tests/workflow.integration.ts",
+    "build:netlify": "prisma generate && prisma migrate deploy && next build",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
