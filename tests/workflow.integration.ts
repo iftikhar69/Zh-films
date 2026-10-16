@@ -136,7 +136,9 @@ test("overlapping bookings cannot both be confirmed; cancelling releases the tim
   const a = await prisma.booking.findFirstOrThrow({ where: { names: "Ayesha & Bilal" } });
   const b = await prisma.booking.findFirstOrThrow({ where: { names: "Overlap Pending" } });
   sent.length = 0;
-  assert.equal((await act(a.id, { action: "confirm", withoutAdvance: true })).status, 200);
+  const confirmed = await act(a.id, { action: "confirm", withoutAdvance: true });
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.json.email?.status, "sent");
   assert.ok(sent.some((m) => m.to.includes("couple@example.com") && /confirmed/i.test(m.subject)));
   const clash = await act(b.id, { action: "confirm", withoutAdvance: true });
   assert.equal(clash.status, 409);

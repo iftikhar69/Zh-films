@@ -145,12 +145,12 @@ export function EnquirySuccess({
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
       <div className="rounded-3xl border border-zh-gold/40 bg-gradient-to-b from-zinc-950 via-black to-black p-6 shadow-[0_0_80px_rgba(200,169,106,0.12)] sm:p-8">
-        <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Request received · pending review</p>
-        <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">We have your request</h1>
+        <p className="text-[10px] uppercase tracking-[0.45em] text-zh-gold">Pending review</p>
+        <h1 className="mt-3 font-serif text-3xl text-white sm:text-4xl">Request received</h1>
         <p className="mt-2 font-mono text-sm text-zh-gold">{result.booking.confirmationCode}</p>
         <p className="mt-4 text-sm text-zinc-300">
-          Your date is <strong className="text-white">not reserved yet</strong>. ZH Films will review availability and
-          get back to you to confirm.
+          Thanks for reaching out to ZH Films. We&apos;ve received your request. We&apos;ll check the date and details and let
+          you know if we can confirm your booking. Until then, your date is <strong className="text-white">not reserved</strong>.
         </p>
         {estimate.total != null ? (
           <dl className="mt-6 space-y-2 rounded-2xl border border-white/10 bg-black/50 p-5 text-sm">

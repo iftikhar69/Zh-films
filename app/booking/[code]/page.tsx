@@ -70,9 +70,11 @@ export default async function CustomerBookingPage({
               ? `We're holding this time for you until ${formatInstant(booking.holdExpiresAt)} while we finalise details. It is not confirmed yet.`
               : "This is a request, not a reservation. Your date is locked only after your advance is received and ZH Films confirms it."
             : booking.status === "confirmed"
-              ? "Your date and time are reserved with ZH Films."
+              ? booking.paymentStatus === "paid"
+                ? "Your date and time are reserved with ZH Films."
+                : "Your date and time are reserved with ZH Films. Any advance shown below is still due."
               : booking.status === "declined"
-                ? "We're sorry we couldn't take this booking. Get in touch if another date works for you."
+                ? "We couldn't take this booking. If another date works for you, get in touch."
                 : booking.status === "cancelled"
                   ? "This booking was cancelled and the time is no longer reserved."
                   : null}

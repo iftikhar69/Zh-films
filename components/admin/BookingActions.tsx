@@ -59,7 +59,7 @@ const COPY: Record<Kind, { title: string; body: string; cta: string; danger?: bo
 
 async function post(url: string, body: unknown) {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string };
+  const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; code?: string; email?: { status: string; error?: string } | null };
   return { res, json };
 }
 
@@ -96,7 +96,11 @@ export function BookingActions(props: Props) {
         return;
       }
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Action failed");
-      toast.success("Saved");
+      toast.success(kind === "confirm" ? "Confirmed. This doesn't mean the advance has been paid." : "Saved");
+      const mail = json.email?.status;
+      if (mail === "sent") toast.success("Email sent to the client");
+      else if (mail === "skipped") toast.warning("No email sent: email isn't set up or the client gave no address. Let them know directly.");
+      else if (mail === "failed") toast.error("The email failed to send. Contact the client directly; it's logged under email issues.");
       setOpen(null);
       setReason("");
       router.refresh();

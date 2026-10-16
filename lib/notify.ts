@@ -60,7 +60,7 @@ export async function notifyNewRequest(b: Booking) {
       bookingId: b.id,
       to: b.email,
       subject: `We received your booking request · ${b.confirmationCode}`,
-      text: `Hi ${b.names},\n\nThank you — we have received your request.\n\n${summary(b)}\n\n${NOT_RESERVED}\n\nWe usually reply within 24 hours. Track your request here:\n${customerLink(b)}\n\n— ZH Films`
+      text: `Hi ${b.names},\n\nThanks for reaching out to ZH Films. We've received your request. We'll check the date and details and let you know if we can confirm your booking.\n\n${summary(b)}\n\n${NOT_RESERVED}\n\nTrack your request here:\n${customerLink(b)}\n\n— ZH Films`
     })
   ];
   if (settings.notifications.onNewRequest && owner.length) {
@@ -81,16 +81,18 @@ export async function notifyNewRequest(b: Booking) {
 export async function notifyStatusChange(b: Booking, status: string, reason?: string) {
   const subjects: Record<string, string> = {
     confirmed: `Your booking is confirmed · ${b.confirmationCode}`,
-    declined: `Update on your booking request · ${b.confirmationCode}`,
+    declined: `We can't take your booking request · ${b.confirmationCode}`,
     cancelled: `Your booking has been cancelled · ${b.confirmationCode}`
   };
   const bodies: Record<string, string> = {
-    confirmed: `Great news — we have confirmed your booking. Your date and time are now reserved with ZH Films.\n\n${summary(b)}${
-      b.advanceAmount ? `\n\nAdvance: ${formatPkr(b.advanceAmount)} — payment details are on your booking page.` : ""
+    confirmed: `Good news: we've confirmed your booking. Your date and time are now reserved with ZH Films.\n\n${summary(b)}${
+      b.advanceAmount && b.paymentStatus !== "paid"
+        ? `\n\nAdvance: ${formatPkr(b.advanceAmount)}. We haven't received this payment yet. Payment details are on your booking page.`
+        : ""
     }`,
-    declined: `We are sorry — we are not able to take this booking.\n\n${summary(b)}${
+    declined: `Thank you for thinking of us. Unfortunately we can't take this booking.\n\n${summary(b)}${
       reason ? `\n\nNote from ZH Films: ${reason}` : ""
-    }\n\nIf you have another date in mind, we would love to hear from you.`,
+    }\n\nIf another date works for you, we'd be glad to hear from you.`,
     cancelled: `Your booking has been cancelled and the time is no longer reserved.\n\n${summary(b)}${
       reason ? `\n\nNote from ZH Films: ${reason}` : ""
     }`

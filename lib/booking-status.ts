@@ -5,10 +5,10 @@ export type BookingStatus = (typeof BOOKING_STATUSES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const BOOKING_STATUS_LABEL: Record<BookingStatus, string> = {
-  pending: "Request — pending review",
+  pending: "Pending review",
   confirmed: "Confirmed",
   completed: "Completed",
-  declined: "Declined",
+  declined: "Not accepted",
   cancelled: "Cancelled"
 };
 

@@ -49,11 +49,11 @@ mock.module(pathToFileURL(createRequire(__filename).resolve("@clerk/nextjs/serve
 
 const sent: { to: string[]; subject: string; text: string }[] = [];
 let server: Server;
+let failMail = false;
 
 type Mod = Record<string, (...a: never[]) => Promise<Response>>;
-let createBooking: Mod, adminBooking: Mod, payments: Mod, adminPayment: Mod;
+let createBooking: Mod, adminBooking: Mod;
 let prisma: typeof import("../lib/prisma").prisma;
-let runReminders: typeof import("../lib/reminders").runReminders;
 let blocked: Mod;
 let dayRange: typeof import("../lib/booking-availability").dayRange;
 
@@ -63,6 +63,7 @@ before(async () => {
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       sent.push(JSON.parse(body));
+      if (failMail) return res.writeHead(500, { "Content-Type": "application/json" }).end('{"message":"down"}');
       res.writeHead(200, { "Content-Type": "application/json" }).end('{"id":"fake"}');
     });
   });
@@ -72,10 +73,7 @@ before(async () => {
 
   createBooking = await import("../app/api/bookings/route");
   adminBooking = await import("../app/api/admin/bookings/[id]/route");
-  payments = await import("../app/api/bookings/[code]/payments/route");
-  adminPayment = await import("../app/api/admin/payments/[id]/route");
   ({ prisma } = await import("../lib/prisma"));
-  ({ runReminders } = await import("../lib/reminders"));
   blocked = await import("../app/api/admin/blocked-dates/route");
   ({ dayRange } = await import("../lib/booking-availability"));
 });
@@ -187,4 +185,18 @@ test("a pending request without a hold does not stop blocking, but cannot be con
   assert.equal(await unblock(res.json.block.id), 200);
   assert.equal(await unblock(res.json.block.id), 404);
   assert.equal((await act(r.json.booking.id, { action: "confirm", withoutAdvance: true })).status, 200);
+});
+
+test("a failed status email is reported honestly and the decision still stands", async () => {
+  session = { userId: "user_owner", admin: true };
+  const r = await request("Mail Down Couple", "09:00", "10:00", "m@example.com", plus(70));
+  assert.equal(r.status, 200);
+  failMail = true;
+  const res = await act(r.json.booking.id, { action: "decline", reason: "Fully booked" });
+  failMail = false;
+  assert.equal(res.status, 200);
+  assert.equal(res.json.email?.status, "failed");
+  assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id } })).status, "declined");
+  const log = await prisma.emailLog.findFirstOrThrow({ where: { bookingId: r.json.booking.id, kind: "customer_declined" } });
+  assert.equal(log.status, "failed");
 });

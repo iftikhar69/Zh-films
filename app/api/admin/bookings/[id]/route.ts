@@ -148,10 +148,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return { booking: current, previous: current };
     });
 
+    let email: { status: string; error?: string } | null = null;
     if (TARGET[input.action]) {
-      await notifyStatusChange(booking, booking.status, "reason" in input ? input.reason : undefined).catch((e) =>
-        console.error("[admin] notify failed", e)
-      );
+      email = await notifyStatusChange(booking, booking.status, "reason" in input ? input.reason : undefined).catch((e) => {
+        console.error("[admin] notify failed", e);
+        return { status: "failed", error: "Email could not be sent" };
+      });
     } else if (input.action === "hold") {
       await notifyHoldPlaced(booking).catch((e) => console.error("[admin] notify failed", e));
     } else if (
@@ -162,7 +164,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     ) {
       await notifyAdvanceRequested(booking).catch((e) => console.error("[admin] notify failed", e));
     }
-    return NextResponse.json({ ok: true, booking });
+    return NextResponse.json({ ok: true, booking, email });
   } catch (e) {
     if (e instanceof SlotUnavailableError) {
       return NextResponse.json(
