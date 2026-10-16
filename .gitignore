@@ -11,3 +11,5 @@ uploads/
 
 # Private uploads (payment receipts)
 storage/
+
+netlify-import.env
