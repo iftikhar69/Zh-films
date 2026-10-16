@@ -8,6 +8,7 @@ import { bookingStatusLabel, isHeld, paymentStatusLabel } from "@/lib/booking-st
 import { formatInstant, formatPkr } from "@/lib/notify";
 import { PaymentSubmitForm } from "@/components/booking/PaymentSubmitForm";
 import { CancelRequestForm } from "@/components/booking/CancelRequestForm";
+import { functionLabel } from "@/lib/wedding-functions";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Your booking", robots: { index: false, follow: false } };
@@ -23,12 +24,17 @@ export default async function CustomerBookingPage({
   const booking = await getCustomerBooking(code.toUpperCase(), t);
   if (!booking) notFound();
 
-  const [settings, payments] = await Promise.all([
+  const [settings, payments, functions] = await Promise.all([
     getSettings(),
     prisma.payment.findMany({
       where: { bookingId: booking.id },
       orderBy: { createdAt: "desc" },
       select: { id: true, amount: true, method: true, reference: true, status: true, createdAt: true, rejectionReason: true }
+    }),
+    prisma.bookingFunction.findMany({
+      where: { bookingId: booking.id },
+      orderBy: { sortOrder: "asc" },
+      select: { id: true, type: true, eventDate: true, startTime: true, endTime: true, venue: true }
     })
   ]);
   const now = new Date();
@@ -74,9 +80,27 @@ export default async function CustomerBookingPage({
       </header>
 
       <section className="grid gap-3 rounded-2xl border border-white/10 bg-zinc-950/50 p-5 text-sm sm:grid-cols-2">
-        <Item label="Service">{service}</Item>
-        <Item label="Date">{booking.eventDate}</Item>
-        <Item label="Time">{booking.startTime ? `${booking.startTime}–${booking.endTime} (Pakistan time)` : "To be agreed"}</Item>
+        <Item label="Service">{booking.packageName ?? service}</Item>
+        {functions.length ? (
+          <div className="sm:col-span-2">
+            <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Functions ({functions.length})</p>
+            <ul className="mt-2 space-y-2">
+              {functions.map((f) => (
+                <li key={f.id} className="flex flex-wrap items-baseline justify-between gap-x-4 rounded-lg border border-white/10 px-3 py-2">
+                  <span className="text-white">{functionLabel(f.type)}</span>
+                  <span className="text-zinc-300">
+                    {f.eventDate} · {f.startTime}–{f.endTime} PKT{f.venue ? ` · ${f.venue}` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <>
+            <Item label="Date">{booking.eventDate}</Item>
+            <Item label="Time">{booking.startTime ? `${booking.startTime}–${booking.endTime} (Pakistan time)` : "To be agreed"}</Item>
+          </>
+        )}
         <Item label="Location">{booking.city}</Item>
         <Item label="Status">{bookingStatusLabel(booking.status)}</Item>
         <Item label="Payment">{paymentStatusLabel(booking.paymentStatus)}</Item>

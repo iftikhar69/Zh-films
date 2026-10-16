@@ -35,7 +35,10 @@ export async function GET() {
         status: true,
         paymentStatus: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        packageName: true,
+        budget: true,
+        functions: { orderBy: { sortOrder: "asc" }, select: { type: true, eventDate: true, startTime: true, endTime: true, venue: true } }
       }
     }),
     prisma.hireRequest.findMany({ where: { clerkUserId: userId }, orderBy: { createdAt: "desc" } }),

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { adminPageGuard } from "@/lib/admin-guard";
 import { EmptyState, PaymentBadge, StatusBadge } from "@/components/admin/Badges";
 import { SERVICES, SERVICE_TYPES } from "@/lib/booking-rules";
+import { functionLabel } from "@/lib/wedding-functions";
 import { BOOKING_STATUSES, PAYMENT_STATUSES, bookingStatusLabel, paymentStatusLabel } from "@/lib/booking-status";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
       where,
       orderBy: sp.when === "upcoming" ? [{ startsAt: "asc" }] : [{ createdAt: "desc" }],
       take: 200,
-      include: { _count: { select: { functions: true } } }
+      include: { functions: { orderBy: { sortOrder: "asc" }, select: { id: true, type: true, eventDate: true } } }
     }),
     prisma.booking.count()
   ]);
@@ -148,8 +149,10 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                     <StatusBadge status={b.status} holdExpiresAt={b.holdExpiresAt} />
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
-                    {what(b)} · {b.eventDate}
-                    {b._count.functions > 1 ? ` + ${b._count.functions - 1} more` : b.startTime ? ` · ${b.startTime}–${b.endTime}` : ""}
+                    {what(b)} ·{" "}
+                    {b.functions.length > 1
+                      ? b.functions.map((f) => `${functionLabel(f.type)} ${f.eventDate}`).join(", ")
+                      : `${b.eventDate}${b.startTime ? ` · ${b.startTime}–${b.endTime}` : ""}`}
                   </p>
                   <p className="mt-1 text-xs text-zinc-500">
                     {b.city} · {b.phone}
@@ -189,8 +192,17 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
                       {b.whatsappRequested ? <p className="text-xs text-emerald-300/80">Via WhatsApp</p> : null}
                     </td>
                     <td className="px-4 py-3 text-zinc-300">
-                      {b.eventDate}
-                      {b._count.functions > 1 ? <span className="text-xs text-zinc-500"> + {b._count.functions - 1} more</span> : null}
+                      {b.functions.length > 1 ? (
+                        <ul className="space-y-0.5">
+                          {b.functions.map((f) => (
+                            <li key={f.id}>
+                              {functionLabel(f.type)} <span className="text-xs text-zinc-500">{f.eventDate}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        b.eventDate
+                      )}
                       <p className="text-xs text-zinc-500">
                         {b.startTime ? `${b.startTime}–${b.endTime}` : "Full day"} · {b.city}
                       </p>

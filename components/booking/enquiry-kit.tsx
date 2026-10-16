@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import { BOOKING_WINDOW, todayIn } from "@/lib/booking-rules";
 /** Form state persisted to sessionStorage so going back or reloading never loses input. */
 export function useSessionDraft<T extends object>(key: string, initial: T) {
   const [value, setValue] = useState<T>(initial);
-  const loaded = useRef(false);
+  // Saving waits for the stored draft to be restored, so the empty initial form never overwrites it.
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(key);
@@ -21,12 +22,12 @@ export function useSessionDraft<T extends object>(key: string, initial: T) {
     } catch {
       sessionStorage.removeItem(key);
     }
-    loaded.current = true;
+    setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
   useEffect(() => {
-    if (loaded.current) sessionStorage.setItem(key, JSON.stringify(value));
-  }, [key, value]);
+    if (hydrated) sessionStorage.setItem(key, JSON.stringify(value));
+  }, [key, value, hydrated]);
   const clear = () => {
     sessionStorage.removeItem(key);
     setValue(initial);

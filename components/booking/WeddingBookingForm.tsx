@@ -1,21 +1,31 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { Check, MessageCircle, Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { estimate, type PublicCatalog } from "@/lib/catalog-shared";
 import { NeedHelp } from "@/components/packages/NeedHelp";
-import { MAX_FUNCTIONS, WEDDING_FUNCTIONS, WEDDING_FUNCTION_TYPES, formatPkr, type WeddingFunctionType } from "@/lib/enquiry";
+import { MAX_FUNCTIONS, WEDDING_FUNCTIONS, WEDDING_FUNCTION_TYPES, formatPkr } from "@/lib/enquiry";
+import {
+  isSelected,
+  removeFunction,
+  sameDayOverlaps,
+  toPayload,
+  toggleFunction,
+  updateFunction,
+  withIds,
+  type FunctionRow
+} from "@/lib/wedding-functions";
+import { BUDGET_TIERS, BUDGET_TIER_KEYS, budgetTierText, type BudgetTier } from "@/lib/budget-tiers";
 import {
   AvailabilityNote,
   EnquirySuccess,
   Field,
   Input,
-  selectClass,
   submitEnquiry,
   useDateBounds,
   useQueryReferences,
@@ -25,13 +35,11 @@ import {
 
 const STEPS = ["Package", "Functions", "Details", "Contact"] as const;
 
-type Fn = { type: WeddingFunctionType; eventDate: string; startTime: string; endTime: string; venue: string };
-
 type Draft = {
   step: number;
   packageId: string;
   addonIds: string[];
-  functions: Fn[];
+  functions: FunctionRow[];
   city: string;
   coverage: string;
   photography: string;
@@ -39,19 +47,13 @@ type Draft = {
   editing: string;
   references: string;
   budget: string;
+  budgetTier: BudgetTier | "";
   customDeal: boolean;
   names: string;
   phone: string;
   email: string;
 };
 
-const newFn = (type: WeddingFunctionType): Fn => ({
-  type,
-  eventDate: "",
-  startTime: WEDDING_FUNCTIONS[type].defaultStart,
-  endTime: WEDDING_FUNCTIONS[type].defaultEnd,
-  venue: ""
-});
 
 export function WeddingBookingForm({ catalog, initialPackage }: { catalog: PublicCatalog; initialPackage: string | null }) {
   const firstPackage = catalog.packages.find((p) => p.id === initialPackage)?.id ?? catalog.packages[0]?.id ?? "";
@@ -59,7 +61,7 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
     step: 0,
     packageId: firstPackage,
     addonIds: [],
-    functions: [newFn("baraat")],
+    functions: [],
     city: "",
     coverage: "",
     photography: "",
@@ -67,6 +69,7 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
     editing: "",
     references: "",
     budget: "",
+    budgetTier: "",
     customDeal: false,
     names: "",
     phone: "",
@@ -92,8 +95,18 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
     setD((prev) => ({ ...prev, [k]: v }));
     setErrors((e) => ({ ...e, [k]: "" }));
   };
-  const setFn = (i: number, patch: Partial<Fn>) =>
-    setD((prev) => ({ ...prev, functions: prev.functions.map((f, j) => (j === i ? { ...f, ...patch } : f)) }));
+  const setFunctions = (next: (rows: FunctionRow[]) => FunctionRow[]) => {
+    setD((prev) => ({ ...prev, functions: next(prev.functions) }));
+    setErrors((e) => ({ ...e, functions: "" }));
+  };
+  const setFn = (id: string, patch: Partial<Omit<FunctionRow, "id">>) => setFunctions((rows) => updateFunction(rows, id, patch));
+
+  // Drafts saved before rows had ids are upgraded once so each row can be edited on its own.
+  const needsIds = d.functions.some((f) => !f.id);
+  useEffect(() => {
+    if (needsIds) setD((prev) => ({ ...prev, functions: withIds(prev.functions) }));
+  }, [needsIds, setD]);
+  const overlaps = useMemo(() => sameDayOverlaps(d.functions), [d.functions]);
 
   const validAddons = d.addonIds.filter((id) => catalog.addons.some((a) => a.id === id));
   const priced = useMemo(() => {
@@ -109,7 +122,11 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
     const e: Record<string, string> = {};
     if (step === 0 && !pkg) e.packageId = "Choose a package";
     if (step === 1) {
-      if (!d.functions.length) e.functions = "Add at least one function";
+      if (!d.functions.length) e.functions = "Choose at least one function";
+      else if (overlaps.length) {
+        const [a, b] = overlaps[0];
+        e.functions = `${WEDDING_FUNCTIONS[a.type].label} and ${WEDDING_FUNCTIONS[b.type].label} overlap on ${a.eventDate}. Change one of the times or dates.`;
+      }
       d.functions.forEach((f, i) => {
         if (!f.eventDate) e[`functions.${i}.eventDate`] = "Pick a date";
         if (!f.startTime) e[`functions.${i}.startTime`] = "Start time";
@@ -156,7 +173,7 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
         kind: "wedding_package",
         packageId: d.packageId,
         addonIds: validAddons,
-        functions: d.functions,
+        functions: toPayload(d.functions),
         names: d.names,
         phone: d.phone,
         email: d.email,
@@ -165,6 +182,7 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
         deliverables: requirements,
         references: d.references,
         budget: d.budget,
+        budgetTier: pkg?.custom && d.budgetTier ? d.budgetTier : undefined,
         customDeal: d.customDeal,
         idempotencyKey: idempotencyKey.current
       },
@@ -298,6 +316,9 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
                 {errors.packageId ? <p className="text-[11px] text-red-400">{errors.packageId}</p> : null}
               </fieldset>
               {pkg ? <Inclusions pkg={pkg} /> : null}
+              {pkg?.custom ? (
+                <BudgetSuggestions value={d.budgetTier} onChange={(t) => set("budgetTier", t)} />
+              ) : null}
               <fieldset className="space-y-2">
                 <legend className="mb-2 text-[11px] uppercase tracking-[0.22em] text-zinc-400">Add-ons</legend>
                 {catalog.addons.length === 0 ? (
@@ -338,68 +359,89 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
 
           {d.step === 1 && (
             <fieldset className="space-y-4">
-              <legend className="mb-1 text-[11px] uppercase tracking-[0.22em] text-zinc-400">Functions and dates</legend>
+              <legend className="mb-1 text-[11px] uppercase tracking-[0.22em] text-zinc-400">Which functions should we cover?</legend>
               <p className="text-xs text-zinc-500">
-                Add each function with its approximate coverage time (Pakistan time). An end time earlier than the start
-                means it runs past midnight.
+                Select every function you want filmed — each gets its own date, time and venue. Tap a selected one again to
+                remove it. Times are Pakistan time; an end time earlier than the start means it runs past midnight.
               </p>
-              {d.functions.map((f, i) => (
-                <div key={i} className="space-y-3 rounded-xl border border-white/10 bg-black/30 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <select
-                      aria-label={`Function ${i + 1} type`}
-                      className={cn(selectClass, "max-w-[220px]")}
-                      value={f.type}
-                      onChange={(e) => {
-                        const t = e.target.value as WeddingFunctionType;
-                        setFn(i, { type: t, startTime: WEDDING_FUNCTIONS[t].defaultStart, endTime: WEDDING_FUNCTIONS[t].defaultEnd });
-                      }}
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Wedding functions">
+                {WEDDING_FUNCTION_TYPES.map((t) => {
+                  const on = t !== "other" && isSelected(d.functions, t);
+                  const full = !on && d.functions.length >= MAX_FUNCTIONS;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      aria-pressed={on}
+                      disabled={full}
+                      onClick={() => setFunctions((rows) => toggleFunction(rows, t))}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm transition disabled:opacity-40",
+                        on ? "border-zh-gold bg-zh-gold/15 text-zh-gold" : "border-white/15 text-zinc-300 hover:border-white/35"
+                      )}
                     >
-                      {WEDDING_FUNCTION_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {WEDDING_FUNCTIONS[t].label}
-                        </option>
-                      ))}
-                    </select>
-                    {d.functions.length > 1 ? (
+                      {on ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      {WEDDING_FUNCTIONS[t].label}
+                    </button>
+                  );
+                })}
+              </div>
+              {d.functions.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-white/15 p-4 text-sm text-zinc-500">
+                  No functions selected yet. Pick Nikah, Mehndi, Baraat, Walima or any combination above.
+                </p>
+              ) : null}
+              {d.functions.map((f, i) => {
+                const clash = overlaps.some(([x, y]) => x.id === f.id || y.id === f.id);
+                return (
+                  <div
+                    key={f.id || i}
+                    data-function={f.type}
+                    className={cn("space-y-3 rounded-xl border bg-black/30 p-4", clash ? "border-amber-400/50" : "border-white/10")}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-serif text-lg text-white">
+                        <span className="mr-2 font-mono text-xs text-zh-gold">{String(i + 1).padStart(2, "0")}</span>
+                        {WEDDING_FUNCTIONS[f.type].label}
+                      </p>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         aria-label={`Remove ${WEDDING_FUNCTIONS[f.type].label}`}
-                        onClick={() => set("functions", d.functions.filter((_, j) => j !== i))}
+                        onClick={() => setFunctions((rows) => removeFunction(rows, f.id))}
                       >
                         <Trash2 />
                       </Button>
-                    ) : null}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <Field label="Date" error={errors[`functions.${i}.eventDate`]}>
+                        <Input type="date" min={minDate} max={maxDate} value={f.eventDate} onChange={(e) => setFn(f.id, { eventDate: e.target.value })} />
+                      </Field>
+                      <Field label="From" error={errors[`functions.${i}.startTime`]}>
+                        <Input type="time" step={900} value={f.startTime} onChange={(e) => setFn(f.id, { startTime: e.target.value })} />
+                      </Field>
+                      <Field label="To" error={errors[`functions.${i}.endTime`]}>
+                        <Input type="time" step={900} value={f.endTime} onChange={(e) => setFn(f.id, { endTime: e.target.value })} />
+                      </Field>
+                    </div>
+                    <Field label="Venue (optional)">
+                      <Input value={f.venue} placeholder="Hall, home or hotel" onChange={(e) => setFn(f.id, { venue: e.target.value })} maxLength={200} />
+                    </Field>
+                    {f.eventDate ? <AvailabilityNote date={f.eventDate} refreshKey={refreshKey} /> : null}
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <Field label="Date" error={errors[`functions.${i}.eventDate`]}>
-                      <Input type="date" min={minDate} max={maxDate} value={f.eventDate} onChange={(e) => setFn(i, { eventDate: e.target.value })} />
-                    </Field>
-                    <Field label="From" error={errors[`functions.${i}.startTime`]}>
-                      <Input type="time" step={900} value={f.startTime} onChange={(e) => setFn(i, { startTime: e.target.value })} />
-                    </Field>
-                    <Field label="To" error={errors[`functions.${i}.endTime`]}>
-                      <Input type="time" step={900} value={f.endTime} onChange={(e) => setFn(i, { endTime: e.target.value })} />
-                    </Field>
-                  </div>
-                  <Field label="Venue (optional)">
-                    <Input value={f.venue} placeholder="Hall, home or hotel" onChange={(e) => setFn(i, { venue: e.target.value })} maxLength={200} />
-                  </Field>
-                  {f.eventDate ? <AvailabilityNote date={f.eventDate} refreshKey={refreshKey} /> : null}
-                </div>
-              ))}
-              {errors.functions ? <p className="text-[11px] text-red-400">{errors.functions}</p> : null}
-              {d.functions.length < MAX_FUNCTIONS ? (
-                <div className="flex flex-wrap gap-2">
-                  {WEDDING_FUNCTION_TYPES.filter((t) => !d.functions.some((f) => f.type === t) || t === "other").map((t) => (
-                    <Button key={t} type="button" variant="outline" size="sm" onClick={() => set("functions", [...d.functions, newFn(t)])}>
-                      <Plus /> {WEDDING_FUNCTIONS[t].label}
-                    </Button>
-                  ))}
-                </div>
+                );
+              })}
+              {overlaps.length ? (
+                <p className="flex items-start gap-2 text-xs text-amber-300" role="status">
+                  <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {overlaps
+                    .map(([a, b]) => `${WEDDING_FUNCTIONS[a.type].label} and ${WEDDING_FUNCTIONS[b.type].label} overlap on ${a.eventDate}`)
+                    .join(" · ")}
+                  . Our team needs setup and travel time between functions.
+                </p>
               ) : null}
+              {errors.functions ? <p className="text-[11px] text-red-400">{errors.functions}</p> : null}
             </fieldset>
           )}
 
@@ -425,7 +467,17 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
               <Field label="Special instructions (optional)">
                 <Textarea value={d.references} maxLength={2000} placeholder="Family requests, reference films, timings to note" onChange={(e) => set("references", e.target.value)} />
               </Field>
-              <Field label="Budget or custom-deal request (optional)" hint="This is shared with ZH Films; it doesn't change the advertised price.">
+              {pkg?.custom ? (
+                <BudgetSuggestions value={d.budgetTier} onChange={(t) => set("budgetTier", t)} compact />
+              ) : null}
+              <Field
+                label={pkg?.custom ? "Your own budget or notes (optional)" : "Budget or custom-deal request (optional)"}
+                hint={
+                  pkg?.custom && d.budgetTier
+                    ? `Sent together with “${budgetTierText(d.budgetTier)}”. Add a different amount or details here.`
+                    : "This is shared with ZH Films; it doesn't change the advertised price."
+                }
+              >
                 <Input value={d.budget} maxLength={300} placeholder="e.g. Around PKR 130,000 for three functions" onChange={(e) => set("budget", e.target.value)} />
               </Field>
               <label className="flex items-center gap-2 text-sm text-zinc-300">
@@ -509,11 +561,15 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
               {pkg.saleLabel || "Discount"}: you save {formatPkr(pkg.listPrice - pkg.price)}
             </p>
           ) : null}
-          {d.functions.some((f) => f.eventDate) ? (
+          {pkg?.custom && d.budgetTier ? (
+            <p className="text-xs text-zh-gold/90">{budgetTierText(d.budgetTier)}</p>
+          ) : null}
+          {d.functions.length ? (
             <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-zinc-400">
               {d.functions.map((f, i) => (
-                <li key={i}>
+                <li key={f.id || i}>
                   {WEDDING_FUNCTIONS[f.type].label}: {f.eventDate || "date?"} {f.startTime}–{f.endTime}
+                  {f.venue ? ` · ${f.venue}` : ""}
                 </li>
               ))}
             </ul>
@@ -556,5 +612,49 @@ function Inclusions({ pkg }: { pkg: PublicCatalog["packages"][number] }) {
         <p className="mt-3 text-xs text-zinc-500">Not included: {pkg.exclusions.join(" · ")}</p>
       ) : null}
     </div>
+  );
+}
+
+function BudgetSuggestions({ value, onChange, compact = false }: { value: BudgetTier | ""; onChange: (t: BudgetTier | "") => void; compact?: boolean }) {
+  return (
+    <fieldset className="space-y-3 rounded-2xl border border-zh-gold/20 bg-gradient-to-b from-zh-gold/[0.06] to-transparent p-4 sm:p-5">
+      <legend className="px-1 text-[11px] uppercase tracking-[0.22em] text-zh-gold/90">Suggested budgets</legend>
+      {!compact ? (
+        <p className="text-xs text-zinc-400">
+          Pick a starting point, then choose your functions and requirements. These are guides to help us plan — not a fixed
+          price or a final quote.
+        </p>
+      ) : null}
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Suggested budget">
+        {BUDGET_TIER_KEYS.map((t) => {
+          const tier = BUDGET_TIERS[t];
+          const on = value === t;
+          return (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              data-tier={t}
+              onClick={() => onChange(on ? "" : t)}
+              className={cn(
+                "rounded-xl border p-3 text-left transition",
+                on ? "border-zh-gold bg-zh-gold/10 shadow-[0_0_30px_rgba(200,169,106,0.12)]" : "border-white/10 bg-black/40 hover:border-white/30"
+              )}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-[11px] uppercase tracking-[0.25em] text-zinc-400">{tier.label}</span>
+                {on ? <Check className="h-4 w-4 text-zh-gold" /> : null}
+              </span>
+              <span className="mt-1 block font-serif text-lg text-white">{tier.amount}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-zinc-500">
+        {value ? `${BUDGET_TIERS[value].label} selected — tap it again to clear. ` : ""}ZH Films reviews your selection and sends
+        the final quote.
+      </p>
+    </fieldset>
   );
 }

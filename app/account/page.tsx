@@ -7,6 +7,7 @@ import { Heart } from "lucide-react";
 import { useFavoriteCount } from "@/stores/favorites-store";
 import { bookingStatusLabel, paymentStatusLabel } from "@/lib/booking-status";
 import { SERVICES } from "@/lib/booking-rules";
+import { functionLabel } from "@/lib/wedding-functions";
 
 function FavoritesShortcut() {
   const count = useFavoriteCount();
@@ -44,6 +45,9 @@ type Payload = {
     startTime: string | null;
     endTime: string | null;
     holdExpiresAt: string | null;
+    packageName?: string | null;
+    budget?: string | null;
+    functions?: Array<{ type: string; eventDate: string; startTime: string; endTime: string; venue: string }>;
   }>;
   hires?: Array<{ crewName: string; eventDate: string; status: string }>;
   rentals?: Array<{ gearName: string; startDate: string; status: string }>;
@@ -132,10 +136,27 @@ export default function AccountPage() {
             <article key={b.confirmationCode} className="zh-callsheet rounded-xl border border-white/10 p-4">
               <p className="font-mono text-xs text-zh-gold">{b.confirmationCode}</p>
               <p className="font-serif text-lg text-white">{b.names}</p>
-              <p className="text-sm text-zinc-400">
-                {SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType} · {b.eventDate}
-                {b.startTime && b.endTime ? ` · ${b.startTime}–${b.endTime} PKT` : ""} · {b.city}
-              </p>
+              {b.functions && b.functions.length > 0 ? (
+                <>
+                  <p className="text-sm text-zinc-400">
+                    {b.packageName ?? SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType} · {b.city}
+                  </p>
+                  <ul className="mt-2 space-y-1 text-sm text-zinc-300">
+                    {b.functions.map((f, i) => (
+                      <li key={i}>
+                        <span className="text-white">{functionLabel(f.type)}</span> · {f.eventDate} · {f.startTime}–{f.endTime} PKT
+                        {f.venue ? ` · ${f.venue}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-sm text-zinc-400">
+                  {SERVICES[b.serviceType as keyof typeof SERVICES]?.label ?? b.serviceType} · {b.eventDate}
+                  {b.startTime && b.endTime ? ` · ${b.startTime}–${b.endTime} PKT` : ""} · {b.city}
+                </p>
+              )}
+              {b.budget ? <p className="mt-1 text-xs text-zinc-500">Your budget: {b.budget}</p> : null}
               {b.status === "pending" ? (
                 <p className="mt-1 text-xs text-zinc-400">
                   {b.holdExpiresAt && new Date(b.holdExpiresAt) > new Date()
