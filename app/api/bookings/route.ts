@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { BUDGET_TIER_KEYS, composeBudget } from "@/lib/budget-tiers";
 import { prisma } from "@/lib/prisma";
 import { confirmationCode, formatCallSheet } from "@/lib/film-family";
 import { clerkConfigured } from "@/lib/auth";
@@ -62,6 +63,7 @@ const schema = z.object({
     .optional()
     .default([]),
   budget: text(300),
+  budgetTier: z.enum(BUDGET_TIER_KEYS).optional(),
   customDeal: z.boolean().optional().default(false),
   whatsapp: z.boolean().optional().default(false)
 });
@@ -275,7 +277,7 @@ export async function POST(req: Request) {
           packagePrice: priced.package?.price ?? null,
           addonsJson: priced.addons.length ? JSON.stringify(priced.addons) : null,
           estimatedTotal: priced.package || priced.addons.length ? priced.total : null,
-          budget: body.budget || null,
+          budget: composeBudget(body.kind === "wedding_package" && body.packageId === "custom" ? body.budgetTier : undefined, body.budget) || null,
           customDealRequested: body.customDeal,
           whatsappRequested: body.whatsapp,
           functions: fns.length

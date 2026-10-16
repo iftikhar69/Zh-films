@@ -430,3 +430,77 @@ test("discount and custom package totals are computed on the server", async () =
   assert.equal((await post(wedding({ packageId: "custom", names: "Too Late", functions: fn("12:00") }))).status, 400, "disabled custom package refused");
 });
 
+
+const DATE4 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
+const DATE5 = new Date(Date.now() + 61 * 86400000).toISOString().slice(0, 10);
+
+test("Nikah and Walima are saved as two independent functions and shown together", async () => {
+  session = { userId: "user_couple", email: "nikah-walima@example.com" };
+  const r = await post(
+    wedding({
+      packageId: "standard",
+      email: "nikah-walima@example.com",
+      functions: [
+        { type: "walima", eventDate: DATE5, startTime: "19:00", endTime: "23:00", venue: "Serena Hotel" },
+        { type: "nikah", eventDate: DATE4, startTime: "11:00", endTime: "15:00", venue: "Badshahi Mosque" }
+      ]
+    })
+  );
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id }, include: { functions: { orderBy: { sortOrder: "asc" } } } });
+  assert.deepEqual(
+    b.functions.map((f) => [f.type, f.eventDate, f.startTime, f.endTime, f.venue]),
+    [
+      ["nikah", DATE4, "11:00", "15:00", "Badshahi Mosque"],
+      ["walima", DATE5, "19:00", "23:00", "Serena Hotel"]
+    ],
+    "both kept, in date order, each with its own details"
+  );
+  assert.equal(b.eventDate, DATE4, "the booking's headline date is the first function");
+  assert.match(r.json.whatsappText, /Nikah/);
+  assert.match(r.json.whatsappText, /Walima/);
+  assert.match(r.json.confirmationMessage, new RegExp(`Nikah ${DATE4}.*Walima ${DATE5}`));
+
+  // Each function blocks only its own time: another couple can't take the Walima slot, but the morning of DATE5 is free.
+  const walimaClash = await post(wedding({ names: "Other couple", functions: [{ type: "mehndi", eventDate: DATE5, startTime: "20:00", endTime: "23:30", venue: "" }] }));
+  const morningFree = await post(wedding({ names: "Morning couple", functions: [{ type: "nikah", eventDate: DATE5, startTime: "08:00", endTime: "11:00", venue: "" }] }));
+  assert.equal(walimaClash.status, 200, "pending requests don't block; the clash shows on confirm");
+  assert.equal(morningFree.status, 200);
+
+  const { GET } = (await import("../app/api/account/route")) as Mod;
+  const account = await (await GET(new Request("http://x"))).json();
+  const mine = account.bookings.find((x: { confirmationCode: string }) => x.confirmationCode === b.confirmationCode);
+  assert.deepEqual(mine.functions.map((f: { type: string }) => f.type), ["nikah", "walima"], "customer account shows both");
+});
+
+test("custom package: Standard, Medium and Premium suggested budgets are saved with the server's wording", async () => {
+  session = { userId: "user_owner", admin: true };
+  const { DEFAULT_CATALOG } = await import("../lib/catalog");
+  assert.equal((await putCatalog(DEFAULT_CATALOG)).status, 200);
+  session = { userId: null, admin: false };
+  const cases = [
+    ["standard", "Suggested budget: Standard (PKR 80,000–110,000)"],
+    ["medium", "Suggested budget: Medium (PKR 150,000)"],
+    ["premium", "Suggested budget: Premium (PKR 200,000)"]
+  ] as const;
+  for (const [i, [tier, text]] of cases.entries()) {
+    const day = new Date(Date.now() + (70 + i) * 86400000).toISOString().slice(0, 10);
+    const r = await post(
+      wedding({ packageId: "custom", budgetTier: tier, budget: "", functions: [{ type: "nikah", eventDate: day, startTime: "11:00", endTime: "15:00", venue: "" }] })
+    );
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    const b = await prisma.booking.findUniqueOrThrow({ where: { id: r.json.booking.id } });
+    assert.equal(b.budget, text);
+    assert.equal(b.packageId, "custom");
+    assert.equal(b.quotedAmount, null, "a suggested budget is never a quote");
+  }
+
+  const day = new Date(Date.now() + 75 * 86400000).toISOString().slice(0, 10);
+  const fn = [{ type: "walima", eventDate: day, startTime: "19:00", endTime: "23:00", venue: "" }];
+  const withNote = await post(wedding({ packageId: "custom", budgetTier: "medium", budget: "Can stretch to 160k for drone", functions: fn }));
+  assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: withNote.json.booking.id } })).budget, "Suggested budget: Medium (PKR 150,000) · Can stretch to 160k for drone");
+
+  assert.equal((await post(wedding({ packageId: "custom", budgetTier: "platinum", functions: fn }))).status, 400, "unknown tier refused");
+  const fixed = await post(wedding({ packageId: "premium", budgetTier: "standard", budget: "", functions: fn, names: "Fixed package couple" }));
+  assert.equal((await prisma.booking.findUniqueOrThrow({ where: { id: fixed.json.booking.id } })).budget, null, "tiers only apply to the custom package");
+});
