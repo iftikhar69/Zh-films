@@ -15,27 +15,34 @@ export default async function AdminOverview() {
   const dayAgo = new Date(now.getTime() - 86400000);
   const in30 = new Date(now.getTime() + 30 * 86400000);
 
-  const [newRequests, pending, held, confirmedUpcoming, awaitingVerification, upcoming, latest, payments, emailIssues] =
-    await Promise.all([
-      prisma.booking.count({ where: { status: "pending", createdAt: { gte: dayAgo } } }),
-      prisma.booking.count({ where: { status: "pending" } }),
-      prisma.booking.count({ where: { status: "pending", holdExpiresAt: { gt: now } } }),
-      prisma.booking.count({ where: { status: "confirmed", startsAt: { gte: now } } }),
-      prisma.payment.count({ where: { status: "submitted" } }),
-      prisma.booking.findMany({
-        where: { status: "confirmed", startsAt: { gte: now, lte: in30 } },
-        orderBy: { startsAt: "asc" },
-        take: 8
-      }),
-      prisma.booking.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" }, take: 6 }),
-      prisma.payment.findMany({
-        where: { status: "submitted" },
-        include: { booking: { select: { id: true, names: true, confirmationCode: true } } },
-        orderBy: { createdAt: "asc" },
-        take: 6
-      }),
-      prisma.emailLog.count({ where: { status: "failed", createdAt: { gte: new Date(now.getTime() - 7 * 86400000) } } })
-    ]);
+  // Counts share one round trip; the database is far from the server, so each query costs real time.
+  const countsQuery = prisma.$queryRaw<
+    { newRequests: number; pending: number; held: number; confirmedUpcoming: number; awaitingVerification: number; emailIssues: number }[]
+  >`
+    SELECT
+      (SELECT count(*)::int FROM "Booking" WHERE status = 'pending' AND "createdAt" >= ${dayAgo}) AS "newRequests",
+      (SELECT count(*)::int FROM "Booking" WHERE status = 'pending') AS pending,
+      (SELECT count(*)::int FROM "Booking" WHERE status = 'pending' AND "holdExpiresAt" > ${now}) AS held,
+      (SELECT count(*)::int FROM "Booking" WHERE status = 'confirmed' AND "startsAt" >= ${now}) AS "confirmedUpcoming",
+      (SELECT count(*)::int FROM "Payment" WHERE status = 'submitted') AS "awaitingVerification",
+      (SELECT count(*)::int FROM "EmailLog" WHERE status = 'failed' AND "createdAt" >= ${new Date(now.getTime() - 7 * 86400000)}) AS "emailIssues"
+  `;
+  const [[counts], upcoming, latest, payments] = await Promise.all([
+    countsQuery,
+    prisma.booking.findMany({
+      where: { status: "confirmed", startsAt: { gte: now, lte: in30 } },
+      orderBy: { startsAt: "asc" },
+      take: 8
+    }),
+    prisma.booking.findMany({ where: { status: "pending" }, orderBy: { createdAt: "desc" }, take: 6 }),
+    prisma.payment.findMany({
+      where: { status: "submitted" },
+      include: { booking: { select: { id: true, names: true, confirmationCode: true } } },
+      orderBy: { createdAt: "asc" },
+      take: 6
+    })
+  ]);
+  const { newRequests, pending, held, confirmedUpcoming, awaitingVerification, emailIssues } = counts;
 
   const stats = [
     { label: "New requests (24h)", value: newRequests, href: "/admin/bookings?status=pending" },

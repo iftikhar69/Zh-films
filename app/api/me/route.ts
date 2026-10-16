@@ -20,11 +20,14 @@ export async function GET() {
       customerSummary(viewer),
       currentUser(),
       viewer.isAdmin
-        ? Promise.all([
-            prisma.booking.count({ where: { status: "pending" } }),
-            prisma.payment.count({ where: { status: "submitted" } }),
-            prisma.booking.count({ where: { status: "confirmed", startsAt: { gte: now, lte: new Date(now.getTime() + 30 * 86400000) } } })
-          ]).then(([pending, paymentsToVerify, upcoming]) => ({ pending, paymentsToVerify, upcoming }))
+        ? prisma
+            .$queryRaw<{ pending: number; paymentsToVerify: number; upcoming: number }[]>`
+              SELECT
+                (SELECT count(*)::int FROM "Booking" WHERE status = 'pending') AS pending,
+                (SELECT count(*)::int FROM "Payment" WHERE status = 'submitted') AS "paymentsToVerify",
+                (SELECT count(*)::int FROM "Booking" WHERE status = 'confirmed' AND "startsAt" >= ${now} AND "startsAt" <= ${new Date(now.getTime() + 30 * 86400000)}) AS upcoming
+            `
+            .then((rows) => rows[0])
         : Promise.resolve(undefined)
     ]);
     return NextResponse.json(

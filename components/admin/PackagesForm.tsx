@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { SaveBar, Switch } from "@/components/admin/FormControls";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { Addon, Catalog } from "@/lib/catalog-shared";
@@ -24,14 +25,34 @@ type Editable = Omit<Catalog["packages"][number], "inclusions" | "exclusions" | 
 };
 type EditableAddon = Omit<Addon, "price"> & { price: string };
 
+function toEditable(c: Catalog) {
+  return {
+    packages: c.packages.map((p) => ({
+      ...p,
+      price: String(p.price),
+      salePrice: p.salePrice == null ? "" : String(p.salePrice),
+      inclusions: p.inclusions.join("\n"),
+      exclusions: p.exclusions.join("\n")
+    })) as Editable[],
+    addons: c.addons.map((a) => ({ ...a, price: String(a.price) })) as EditableAddon[],
+    custom: { ...c.custom, basePrice: String(c.custom.basePrice) }
+  };
+}
+
 export function PackagesForm({ initial, images }: { initial: Catalog; images: string[] }) {
   const router = useRouter();
-  const [packages, setPackages] = useState<Editable[]>(
-    initial.packages.map((p) => ({ ...p, price: String(p.price), salePrice: p.salePrice == null ? "" : String(p.salePrice), inclusions: p.inclusions.join("\n"), exclusions: p.exclusions.join("\n") }))
-  );
-  const [addons, setAddons] = useState<EditableAddon[]>(initial.addons.map((a) => ({ ...a, price: String(a.price) })));
-  const [custom, setCustom] = useState({ ...initial.custom, basePrice: String(initial.custom.basePrice) });
+  const start = useMemo(() => toEditable(initial), [initial]);
+  const [snapshot, setSnapshot] = useState(start);
+  const [packages, setPackages] = useState<Editable[]>(start.packages);
+  const [addons, setAddons] = useState<EditableAddon[]>(start.addons);
+  const [custom, setCustom] = useState(start.custom);
   const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify({ packages, addons, custom }) !== JSON.stringify(snapshot);
+  const discard = () => {
+    setPackages(snapshot.packages);
+    setAddons(snapshot.addons);
+    setCustom(snapshot.custom);
+  };
 
   const setPkg = (i: number, patch: Partial<Editable>) => setPackages((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
   const setAddon = (i: number, patch: Partial<EditableAddon>) => setAddons((as) => as.map((a, j) => (j === i ? { ...a, ...patch } : a)));
@@ -67,6 +88,7 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
       toast.error(json.error ?? "Could not save");
       return;
     }
+    setSnapshot({ packages, addons, custom });
     toast.success("Packages saved — the public site now shows these prices");
     router.refresh();
   }
@@ -110,10 +132,9 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
               </select>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <label className="flex items-center gap-2 text-sm text-zinc-200 sm:col-span-2">
-                <input type="checkbox" checked={p.enabled} onChange={(e) => setPkg(i, { enabled: e.target.checked })} className="accent-[#c8a96a]" />
-                Show this package on the website
-              </label>
+              <div className="sm:col-span-2">
+                <Switch checked={p.enabled} onChange={(v) => setPkg(i, { enabled: v })} label="Show this package on the website" />
+              </div>
               <L label="Name">
                 <Input value={p.name} maxLength={80} onChange={(e) => setPkg(i, { name: e.target.value })} />
               </L>
@@ -172,10 +193,9 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
             </select>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-zinc-200 sm:col-span-2">
-              <input type="checkbox" checked={custom.enabled} onChange={(e) => setCustom((c) => ({ ...c, enabled: e.target.checked }))} className="accent-[#c8a96a]" />
-              Let customers build a custom package from the add-ons below
-            </label>
+            <div className="sm:col-span-2">
+              <Switch checked={custom.enabled} onChange={(v) => setCustom((c) => ({ ...c, enabled: v }))} label="Let customers build a custom package from the add-ons below" />
+            </div>
             <L label="Name">
               <Input value={custom.name} maxLength={80} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} />
             </L>
@@ -221,10 +241,7 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
                 <Input inputMode="numeric" value={a.price} onChange={(e) => setAddon(i, { price: e.target.value.replace(/\D/g, "") })} />
               </L>
               <div className="flex items-center gap-3 pb-2">
-                <label className="flex items-center gap-1.5 text-xs text-zinc-300">
-                  <input type="checkbox" checked={a.enabled} onChange={(e) => setAddon(i, { enabled: e.target.checked })} className="accent-[#c8a96a]" />
-                  On
-                </label>
+                <Switch checked={a.enabled} onChange={(v) => setAddon(i, { enabled: v })} label={<span className="sr-only">Offer this add-on</span>} />
                 <Button type="button" variant="ghost" size="icon" aria-label="Remove add-on" onClick={() => setAddons((as) => as.filter((_, j) => j !== i))}>
                   <Trash2 />
                 </Button>
@@ -237,11 +254,7 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
         )}
       </section>
 
-      <div className="sticky bottom-4 flex justify-end">
-        <Button type="submit" disabled={busy} size="lg">
-          {busy ? "Saving…" : "Save packages"}
-        </Button>
-      </div>
+      <SaveBar dirty={dirty} busy={busy} label="Save packages" onDiscard={discard} />
     </form>
   );
 }

@@ -23,7 +23,7 @@ export default async function SettingsPage() {
         <p className="mt-2 text-sm text-zinc-400">Payment details, booking rules and notifications. Never enter PINs or banking passwords here.</p>
       </header>
 
-      <SettingsForm initial={settings} />
+      <SettingsForm initial={settings} emailReady={configured} />
 
       <section className="space-y-3">
         <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Email delivery</h2>

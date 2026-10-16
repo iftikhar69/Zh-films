@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
@@ -20,7 +21,10 @@ export async function getSessionUser() {
   }
 }
 
-export async function requireAdmin() {
+/** Memoised per request: the admin layout, page and data loaders share one Clerk lookup. */
+export const requireAdmin = cache(requireAdminUncached);
+
+async function requireAdminUncached() {
   if (!clerkConfigured()) {
     return { ok: false as const, reason: "Clerk is not configured" };
   }
