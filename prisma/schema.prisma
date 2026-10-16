@@ -281,6 +281,16 @@ model GearItem {
   image       String
   available   Boolean @default(true)
   sortOrder   Int     @default(0)
+  /// draft (hidden) | available | unavailable | enquiry. Only non-draft items are public.
+  status      String  @default("draft")
+  condition   String  @default("")
+  includes    String  @default("")
+  salePrice   Int?
+  rentPrice   Int?
+  rentUnit    String  @default("day")
+  imageThumb  String  @default("")
+  imagePaths  String[] @default([])
+  updatedAt   DateTime @default(now()) @updatedAt
 }
 
 /// One function of a booking (e.g. Mehndi, Baraat). Every slot is checked for conflicts;
@@ -303,4 +313,54 @@ model BookingFunction {
 
   @@index([teamId, blockStart, blockEnd])
   @@index([bookingId])
+}
+
+/// Private family/event galleries. Photos live in the private `family` bucket and are only
+/// served through short-lived signed URLs after a membership check.
+model FamilyGallery {
+  id             String               @id @default(cuid())
+  title          String
+  eventDate      String               @default("")
+  description    String               @default("")
+  /// active | archived. Archived galleries are hidden from members.
+  status         String               @default("active")
+  allowDownloads Boolean              @default(false)
+  coverPhotoId   String?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  members        FamilyGalleryMember[]
+  photos         FamilyPhoto[]
+}
+
+model FamilyGalleryMember {
+  id        String        @id @default(cuid())
+  galleryId String
+  gallery   FamilyGallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  /// Lower-case. Access requires a signed-in account with this email verified.
+  email     String
+  addedBy   String        @default("")
+  createdAt DateTime      @default(now())
+
+  @@unique([galleryId, email])
+  @@index([email])
+}
+
+model FamilyPhoto {
+  id           String        @id @default(cuid())
+  galleryId    String
+  gallery      FamilyGallery @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  originalPath String
+  displayPath  String
+  thumbPath    String
+  width        Int
+  height       Int
+  bytes        Int           @default(0)
+  sortOrder    Int           @default(0)
+  /// upload | drive
+  source       String        @default("upload")
+  sourceId     String?
+  createdAt    DateTime      @default(now())
+
+  @@unique([galleryId, sourceId])
+  @@index([galleryId, sortOrder])
 }
