@@ -85,7 +85,7 @@ function blockingStatus(now: Date): Prisma.BookingWhereInput {
 
 /** Blocking ranges overlapping [from, to): booking rows plus their individual functions. */
 async function blockingRanges(db: Db, from: Date, to: Date, now: Date, excludeId?: string): Promise<Range[]> {
-  const [rows, fns] = await Promise.all([
+  const [rows, fns, blocked] = await Promise.all([
     db.booking.findMany({ where: blockingWhere(from, to, now, excludeId), select: { blockStart: true, blockEnd: true } }),
     db.bookingFunction.findMany({
       where: {
@@ -95,10 +95,14 @@ async function blockingRanges(db: Db, from: Date, to: Date, now: Date, excludeId
         booking: { ...blockingStatus(now), id: excludeId ? { not: excludeId } : undefined }
       },
       select: { blockStart: true, blockEnd: true }
+    }),
+    db.blockedDate.findMany({
+      where: { teamId: TEAM_ID, blockStart: { lt: to }, blockEnd: { gt: from } },
+      select: { blockStart: true, blockEnd: true }
     })
   ]);
   const seen = new Set<string>();
-  return [...(rows as Range[]), ...fns].filter((r) => {
+  return [...(rows as Range[]), ...fns, ...blocked].filter((r) => {
     const k = `${r.blockStart.getTime()}-${r.blockEnd.getTime()}`;
     if (seen.has(k)) return false;
     seen.add(k);
@@ -182,4 +186,48 @@ export async function confirmedDatesAhead(days: number, now = new Date()) {
     distinct: ["eventDate"]
   });
   return rows.length;
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Whole-day UTC span for an inclusive local date range. */
+export function dayRange(startDate: string, endDate: string) {
+  if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) throw new Error("Use YYYY-MM-DD dates.");
+  if (endDate < startDate) throw new Error("The end date is before the start date.");
+  const blockStart = zonedTimeToUtc(startDate, "00:00");
+  const blockEnd = new Date(zonedTimeToUtc(endDate, "00:00").getTime() + 86400000);
+  if ((blockEnd.getTime() - blockStart.getTime()) / 86400000 > 366) throw new Error("Block at most one year at a time.");
+  return { blockStart, blockEnd };
+}
+
+export class BlockConflictError extends Error {
+  constructor(public bookings: { id: string; names: string; eventDate: string }[]) {
+    super("Confirmed or held bookings already fall on these dates.");
+  }
+}
+
+/**
+ * Marks dates Busy. Refuses when a confirmed or currently held booking overlaps, unless
+ * `force` is set, so the owner never silently strands an accepted client.
+ */
+export async function blockDates(input: { startDate: string; endDate: string; reason?: string | null; createdBy?: string | null; force?: boolean }, now = new Date()) {
+  const { blockStart, blockEnd } = dayRange(input.startDate, input.endDate);
+  return withScheduleLock(async (tx) => {
+    if (!input.force) {
+      const hit = await tx.booking.findMany({
+        where: {
+          teamId: TEAM_ID,
+          OR: [
+            blockingWhere(blockStart, blockEnd, now),
+            { functions: { some: { blockStart: { lt: blockEnd }, blockEnd: { gt: blockStart } } }, ...blockingStatus(now) }
+          ]
+        },
+        select: { id: true, names: true, eventDate: true }
+      });
+      if (hit.length) throw new BlockConflictError(hit);
+    }
+    return tx.blockedDate.create({
+      data: { teamId: TEAM_ID, startDate: input.startDate, endDate: input.endDate, reason: input.reason?.trim() || null, blockStart, blockEnd, createdBy: input.createdBy ?? null }
+    });
+  });
 }

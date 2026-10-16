@@ -207,6 +207,22 @@ model ScheduleLock {
   updatedAt DateTime @updatedAt
 }
 
+/// Dates the owner has marked Busy / Unavailable. Inclusive local dates; blockStart/blockEnd
+/// cover the whole days in UTC so they participate in the same overlap checks as bookings.
+model BlockedDate {
+  id         String   @id @default(cuid())
+  teamId     String   @default("film-family")
+  startDate  String
+  endDate    String
+  reason     String?
+  blockStart DateTime
+  blockEnd   DateTime
+  createdBy  String?
+  createdAt  DateTime @default(now())
+
+  @@index([teamId, blockStart, blockEnd])
+}
+
 model HireRequest {
   id          String   @id @default(cuid())
   crewId      String

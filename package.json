@@ -18,6 +18,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "test:customer": "tsx --env-file=.env --test --experimental-test-module-mocks tests/customer.integration.ts",
+    "test:calendar": "tsx --env-file=.env --test --experimental-test-module-mocks tests/calendar.integration.ts",
     "test:galleries": "tsx --env-file=.env --test --experimental-test-module-mocks tests/galleries.integration.ts"
   },
   "prisma": {
