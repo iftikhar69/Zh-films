@@ -48,6 +48,8 @@ type Payload = {
   hires?: Array<{ crewName: string; eventDate: string; status: string }>;
   rentals?: Array<{ gearName: string; startDate: string; status: string }>;
   sells?: Array<{ gearName: string; status: string }>;
+  galleries?: Array<{ id: string; title: string; eventDate: string | null; photos: number }>;
+  emailVerified?: boolean;
 };
 
 export default function AccountPage() {
@@ -88,7 +90,35 @@ export default function AccountPage() {
 
       <FavoritesShortcut />
 
-      <section className="mt-10 space-y-3">
+      <section id="galleries" className="mt-10 scroll-mt-28 space-y-3">
+        <h2 className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Family galleries</h2>
+        {(data.galleries ?? []).length === 0 ? (
+          <p className="text-sm text-zinc-500">
+            {data.emailVerified === false
+              ? "Verify your email in account settings — private galleries are shared to verified emails only."
+              : "No private galleries are shared with your email yet. We will let you know when your photos are ready."}
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {data.galleries?.map((g) => (
+              <Link
+                key={g.id}
+                href={`/galleries/${g.id}`}
+                className="rounded-xl border border-white/10 p-4 transition hover:border-zh-gold/40"
+              >
+                <p className="font-serif text-lg text-white">{g.title}</p>
+                <p className="mt-1 text-xs text-zinc-400">
+                  {g.eventDate ? `${String(g.eventDate).slice(0, 10)} · ` : ""}
+                  {g.photos} {g.photos === 1 ? "photo" : "photos"}
+                </p>
+                <span className="mt-2 inline-block text-xs text-zh-gold">Open gallery →</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section id="bookings" className="mt-10 scroll-mt-28 space-y-3">
         <h2 className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Bookings</h2>
         {(data.bookings ?? []).length === 0 ? (
           <p className="text-sm text-zinc-500">
@@ -142,7 +172,24 @@ export default function AccountPage() {
             {h.crewName} · {h.eventDate} · {h.status}
           </p>
         ))}
+        {(data.hires ?? []).length === 0 ? <p className="text-sm text-zinc-500">No crew hires yet.</p> : null}
       </section>
+
+      {(data.rentals ?? []).length + (data.sells ?? []).length > 0 ? (
+        <section className="mt-8 space-y-3">
+          <h2 className="text-[10px] uppercase tracking-[0.3em] text-zinc-500">Gear enquiries</h2>
+          {data.rentals?.map((r, i) => (
+            <p key={`r${i}`} className="text-sm text-zinc-300">
+              Rent · {r.gearName} · from {String(r.startDate).slice(0, 10)} · {r.status}
+            </p>
+          ))}
+          {data.sells?.map((s, i) => (
+            <p key={`s${i}`} className="text-sm text-zinc-300">
+              Buy · {s.gearName} · {s.status}
+            </p>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }

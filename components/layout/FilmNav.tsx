@@ -30,8 +30,7 @@ const mobileLinks = [
   { href: "/book/wedding", label: "Wedding packages" },
   { href: "/book/event", label: "Book an event" },
   ...links,
-  { href: "/instagram", label: "Dailies" },
-  { href: "/account", label: "My bookings" }
+  { href: "/instagram", label: "Dailies" }
 ];
 
 function isActive(pathname: string, href: string) {
@@ -268,8 +267,10 @@ export function FilmNav() {
               >
                 WhatsApp
               </a>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <AuthControls onNavigate={() => setMenuOpen(false)} />
+              <div className="flex w-full flex-col gap-3">
+                <div className="w-full">
+                  <AuthControls onNavigate={() => setMenuOpen(false)} />
+                </div>
                 <CinemaModeToggle />
               </div>
             </motion.div>

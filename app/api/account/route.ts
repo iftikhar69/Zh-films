@@ -1,30 +1,23 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { clerkConfigured } from "@/lib/auth";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { galleriesFor, getViewer } from "@/lib/galleries";
+import { claimBookings } from "@/lib/customer";
+
+const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function GET() {
   if (!clerkConfigured()) {
-    return NextResponse.json({ ok: false, error: "Sign in is not configured" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "Sign in is not configured" }, { status: 401, headers: NO_STORE });
   }
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) {
+    return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401, headers: NO_STORE });
   }
+  const userId = viewer.userId;
+  await claimBookings(viewer);
 
-  const user = await currentUser();
-  const verifiedEmails = (user?.emailAddresses ?? [])
-    .filter((e) => e.verification?.status === "verified")
-    .map((e) => e.emailAddress.toLowerCase());
-  if (verifiedEmails.length) {
-    // Bookings made before signing in are attached only to a verified email the user owns.
-    await prisma.booking.updateMany({
-      where: { clerkUserId: null, email: { in: verifiedEmails } },
-      data: { clerkUserId: userId }
-    });
-  }
-
-  const [bookings, hires, rentals, sells] = await Promise.all([
+  const [bookings, hires, rentals, sells, galleries] = await Promise.all([
     prisma.booking.findMany({
       where: { clerkUserId: userId },
       orderBy: { createdAt: "desc" },
@@ -45,19 +38,22 @@ export async function GET() {
         updatedAt: true
       }
     }),
-    prisma.hireRequest.findMany({
-      where: { clerkUserId: userId },
-      orderBy: { createdAt: "desc" }
-    }),
-    prisma.rentalInquiry.findMany({
-      where: { clerkUserId: userId },
-      orderBy: { createdAt: "desc" }
-    }),
-    prisma.sellInquiry.findMany({
-      where: { clerkUserId: userId },
-      orderBy: { createdAt: "desc" }
-    })
+    prisma.hireRequest.findMany({ where: { clerkUserId: userId }, orderBy: { createdAt: "desc" } }),
+    prisma.rentalInquiry.findMany({ where: { clerkUserId: userId }, orderBy: { createdAt: "desc" } }),
+    prisma.sellInquiry.findMany({ where: { clerkUserId: userId }, orderBy: { createdAt: "desc" } }),
+    galleriesFor(viewer)
   ]);
 
-  return NextResponse.json({ ok: true, bookings, hires, rentals, sells });
+  return NextResponse.json(
+    {
+      ok: true,
+      emailVerified: viewer.emails.length > 0,
+      bookings,
+      hires,
+      rentals,
+      sells,
+      galleries: galleries.map((g) => ({ id: g.id, title: g.title, eventDate: g.eventDate, photos: g._count.photos }))
+    },
+    { headers: NO_STORE }
+  );
 }
