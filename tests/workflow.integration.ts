@@ -435,7 +435,7 @@ const DATE4 = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
 const DATE5 = new Date(Date.now() + 61 * 86400000).toISOString().slice(0, 10);
 
 test("Nikah and Walima are saved as two independent functions and shown together", async () => {
-  session = { userId: "user_couple", email: "nikah-walima@example.com" };
+  session = { userId: "user_couple", admin: false };
   const r = await post(
     wedding({
       packageId: "standard",
@@ -468,7 +468,7 @@ test("Nikah and Walima are saved as two independent functions and shown together
   assert.equal(morningFree.status, 200);
 
   const { GET } = (await import("../app/api/account/route")) as Mod;
-  const account = await (await GET(new Request("http://x"))).json();
+  const account = await (await GET(new Request("http://x") as never)).json();
   const mine = account.bookings.find((x: { confirmationCode: string }) => x.confirmationCode === b.confirmationCode);
   assert.deepEqual(mine.functions.map((f: { type: string }) => f.type), ["nikah", "walima"], "customer account shows both");
 });

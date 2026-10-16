@@ -566,12 +566,14 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
           ) : null}
           {d.functions.length ? (
             <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-zinc-400">
-              {d.functions.map((f, i) => (
-                <li key={f.id || i}>
-                  {WEDDING_FUNCTIONS[f.type].label}: {f.eventDate || "date?"} {f.startTime}–{f.endTime}
-                  {f.venue ? ` · ${f.venue}` : ""}
-                </li>
-              ))}
+              {[...d.functions]
+                .sort((x, y) => `${x.eventDate || "9"}${x.startTime}`.localeCompare(`${y.eventDate || "9"}${y.startTime}`))
+                .map((f, i) => (
+                  <li key={f.id || i}>
+                    {WEDDING_FUNCTIONS[f.type].label}: {f.eventDate || "date?"} {f.startTime}–{f.endTime}
+                    {f.venue ? ` · ${f.venue}` : ""}
+                  </li>
+                ))}
             </ul>
           ) : null}
           <p className="text-[11px] leading-relaxed text-zinc-500">
