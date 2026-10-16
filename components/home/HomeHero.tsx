@@ -19,10 +19,12 @@ export function HomeHero({
   reviewAverage,
   reviewCount,
   reelCount,
+  crewCount,
 }: {
   reviewAverage: number;
   reviewCount: number;
   reelCount: number;
+  crewCount: number;
 }) {
   const ready = useUi((s) => s.introDone);
   const ref = useRef<HTMLElement>(null);
@@ -47,7 +49,7 @@ export function HomeHero({
       label: `Rating · ${reviewCount} reviews`,
       star: true,
     },
-    { value: 8, suffix: "", label: "Seats in the family" },
+    { value: crewCount, suffix: "", label: "Seats in the family" },
   ];
 
   return (

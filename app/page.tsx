@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getLoveCounts, getMostLovedReels, getReviewStats } from "@/lib/queries";
 import { HomeHero } from "@/components/home/HomeHero";
+import { CustomerWelcome } from "@/components/home/CustomerWelcome";
 import { ServicesBand } from "@/components/home/ServicesBand";
 import { FeaturedReels } from "@/components/home/FeaturedReels";
 import { ProcessTimeline } from "@/components/home/ProcessTimeline";
@@ -25,13 +26,14 @@ export const metadata: Metadata = buildPageMetadata({
 });
 
 export default async function HomePage() {
-  const [featured, loved, reviews, stats, reelCount, confirmedDates] = await Promise.all([
+  const [featured, loved, reviews, stats, reelCount, confirmedDates, crewCount] = await Promise.all([
     prisma.reel.findMany({ where: { featured: true }, orderBy: { views: "desc" }, take: 6 }),
     getMostLovedReels(6),
     prisma.review.findMany({ where: { approved: true }, orderBy: { createdAt: "desc" }, take: 20 }),
     getReviewStats(),
     prisma.reel.count(),
-    confirmedDatesAhead(90)
+    confirmedDatesAhead(90),
+    prisma.crewMember.count({ where: { published: true } })
   ]);
   const loves = await getLoveCounts(
     "reel",
@@ -41,7 +43,8 @@ export default async function HomePage() {
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Home", path: "/" }])} />
-      <HomeHero reviewAverage={stats.average} reviewCount={stats.count} reelCount={reelCount} />
+      <HomeHero reviewAverage={stats.average} reviewCount={stats.count} reelCount={reelCount} crewCount={crewCount} />
+      <CustomerWelcome />
       <ServicesBand />
       <FeaturedReels reels={featured} loves={loves} />
       <ProcessTimeline />
