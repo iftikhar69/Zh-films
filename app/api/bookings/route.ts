@@ -62,7 +62,7 @@ const schema = z.object({
     .max(MAX_FUNCTIONS)
     .optional()
     .default([]),
-  budget: text(300),
+  budget: text(1000),
   budgetTier: z.enum(BUDGET_TIER_KEYS).optional(),
   customDeal: z.boolean().optional().default(false),
   whatsapp: z.boolean().optional().default(false)

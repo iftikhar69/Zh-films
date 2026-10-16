@@ -320,10 +320,17 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
                 <BudgetSuggestions value={d.budgetTier} onChange={(t) => set("budgetTier", t)} />
               ) : null}
               <fieldset className="space-y-2">
-                <legend className="mb-2 text-[11px] uppercase tracking-[0.22em] text-zinc-400">Add-ons</legend>
+                <legend className="mb-2 flex w-full items-baseline justify-between gap-2 text-[11px] uppercase tracking-[0.22em] text-zinc-400">
+                  <span>Add services</span>
+                  {validAddons.length ? (
+                    <button type="button" onClick={() => set("addonIds", [])} className="normal-case tracking-normal text-zinc-500 underline">
+                      Clear {validAddons.length}
+                    </button>
+                  ) : null}
+                </legend>
                 {catalog.addons.length === 0 ? (
                   <p className="text-xs text-zinc-500">
-                    No add-ons are listed yet. Mention anything extra in the details step or on WhatsApp.
+                    No extra services are listed yet. Mention anything extra in the details step or on WhatsApp.
                   </p>
                 ) : (
                   catalog.addons.map((a) => {
@@ -353,7 +360,14 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
                     );
                   })
                 )}
+                {catalog.addons.length ? (
+                  <p className="flex justify-between rounded-xl bg-white/5 px-3 py-2 text-sm" aria-live="polite">
+                    <span className="text-zinc-400">Estimated total</span>
+                    <span className="text-zh-gold">{pkg?.custom && !priced?.total ? "Quote on request" : formatPkr(priced?.total ?? 0)}</span>
+                  </p>
+                ) : null}
               </fieldset>
+              <DiscussToggle checked={d.customDeal} onChange={(v) => set("customDeal", v)} />
             </>
           )}
 
@@ -471,19 +485,22 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
                 <BudgetSuggestions value={d.budgetTier} onChange={(t) => set("budgetTier", t)} compact />
               ) : null}
               <Field
-                label={pkg?.custom ? "Your own budget or notes (optional)" : "Budget or custom-deal request (optional)"}
+                label={pkg?.custom ? "Tell us what you have in mind (optional)" : "Budget or custom-deal request (optional)"}
                 hint={
                   pkg?.custom && d.budgetTier
                     ? `Sent together with “${budgetTierText(d.budgetTier)}”. Add a different amount or details here.`
-                    : "This is shared with ZH Films; it doesn't change the advertised price."
+                    : pkg?.custom
+                      ? "Describe the coverage you want in your own words. You don't need to set a price."
+                      : "This is shared with ZH Films; it doesn't change the advertised price."
                 }
               >
-                <Input value={d.budget} maxLength={300} placeholder="e.g. Around PKR 130,000 for three functions" onChange={(e) => set("budget", e.target.value)} />
+                {pkg?.custom ? (
+                  <Textarea value={d.budget} maxLength={1000} placeholder="e.g. Photos of the nikah and walima, a short film of the mehndi, and an album for my parents" onChange={(e) => set("budget", e.target.value)} />
+                ) : (
+                  <Input value={d.budget} maxLength={300} placeholder="e.g. Around PKR 130,000 for three functions" onChange={(e) => set("budget", e.target.value)} />
+                )}
               </Field>
-              <label className="flex items-center gap-2 text-sm text-zinc-300">
-                <input type="checkbox" checked={d.customDeal} onChange={(e) => set("customDeal", e.target.checked)} className="accent-[#c8a96a]" />
-                I&apos;d like to discuss a custom deal
-              </label>
+              <DiscussToggle checked={d.customDeal} onChange={(v) => set("customDeal", v)} />
             </>
           )}
 
@@ -614,6 +631,18 @@ function Inclusions({ pkg }: { pkg: PublicCatalog["packages"][number] }) {
         <p className="mt-3 text-xs text-zinc-500">Not included: {pkg.exclusions.join(" · ")}</p>
       ) : null}
     </div>
+  );
+}
+
+function DiscussToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm transition", checked ? "border-zh-gold/60 bg-zh-gold/5" : "border-white/10 hover:border-white/25")}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5 accent-[#c8a96a]" />
+      <span>
+        <span className="block text-white">Discuss my package with Zulfikar</span>
+        <span className="block text-xs text-zinc-400">Not sure what to choose? Zulfikar will talk it through with you before anything is final.</span>
+      </span>
+    </label>
   );
 }
 

@@ -117,7 +117,7 @@ export default async function BookingDetail({ params }: { params: Promise<{ id: 
               )}
             </Row>
             {b.budget ? <Row label="Budget / deal">{b.budget}</Row> : null}
-            <Row label="Custom deal">{b.customDealRequested ? "Requested" : "No"}</Row>
+            <Row label="Wants to discuss package">{b.customDealRequested ? "Yes" : "No"}</Row>
             <Row label="WhatsApp">{b.whatsappRequested ? "Customer chose to continue on WhatsApp" : "Not requested"}</Row>
           </dl>
         </section>

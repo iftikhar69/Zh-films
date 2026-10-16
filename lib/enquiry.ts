@@ -74,7 +74,7 @@ export function enquiryWhatsAppText(m: EnquiryMessage) {
   if (m.addons?.length) out.push(`Add-ons: ${m.addons.map((a) => `${a.name} (${formatPkr(a.price)})`).join(", ")}`);
   if (m.estimatedTotal != null && (m.packageName || m.addons?.length)) out.push(`Estimated total: ${formatPkr(m.estimatedTotal)}`);
   if (m.budget) out.push(`My budget / deal request: ${m.budget}`);
-  if (m.customDeal) out.push("I'd like to discuss a custom deal.");
+  if (m.customDeal) out.push("I'd like to discuss my package with Zulfikar.");
   const contact = [m.name, m.phone, m.email].filter(Boolean).join(" · ");
   if (contact) out.push("", `Contact: ${contact}`);
   out.push("", "I understand the date is confirmed only after ZH Films approves it.");
