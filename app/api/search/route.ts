@@ -1,3 +1,4 @@
+import { PUBLIC_GEAR_STATUSES } from "@/lib/gear";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -16,20 +17,23 @@ export async function GET(req: Request) {
 
   const [reels, crew, gear, posts] = await Promise.all([
     prisma.reel.findMany({
-      where: { OR: [{ title: { contains: q } }, { category: { contains: q } }] },
+      where: { OR: [{ title: { contains: q, mode: "insensitive" as const } }, { category: { contains: q, mode: "insensitive" as const } }] },
       take: 6,
       orderBy: { views: "desc" }
     }),
     prisma.crewMember.findMany({
-      where: { OR: [{ name: { contains: q } }, { title: { contains: q } }, { role: { contains: q } }] },
+      where: { OR: [{ name: { contains: q, mode: "insensitive" as const } }, { title: { contains: q, mode: "insensitive" as const } }, { role: { contains: q, mode: "insensitive" as const } }] },
       take: 4
     }),
     prisma.gearItem.findMany({
-      where: { OR: [{ name: { contains: q } }, { brand: { contains: q } }, { category: { contains: q } }] },
+      where: {
+        status: { in: PUBLIC_GEAR_STATUSES },
+        OR: [{ name: { contains: q, mode: "insensitive" as const } }, { brand: { contains: q, mode: "insensitive" as const } }, { category: { contains: q, mode: "insensitive" as const } }]
+      },
       take: 4
     }),
     prisma.journalPost.findMany({
-      where: { OR: [{ title: { contains: q } }, { excerpt: { contains: q } }] },
+      where: { OR: [{ title: { contains: q, mode: "insensitive" as const } }, { excerpt: { contains: q, mode: "insensitive" as const } }] },
       take: 3
     })
   ]);

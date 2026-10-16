@@ -36,11 +36,11 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
   if (q) {
     and.push({
       OR: [
-        { names: { contains: q } },
-        { email: { contains: q.toLowerCase() } },
-        { phone: { contains: q } },
-        { confirmationCode: { contains: q.toUpperCase() } },
-        { city: { contains: q } }
+        { names: { contains: q, mode: "insensitive" } },
+        { email: { contains: q.toLowerCase(), mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
+        { confirmationCode: { contains: q.toUpperCase(), mode: "insensitive" } },
+        { city: { contains: q, mode: "insensitive" } }
       ]
     });
   }

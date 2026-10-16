@@ -1,3 +1,4 @@
+import { PUBLIC_GEAR_STATUSES } from "@/lib/gear";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ async function itemExists(type: FavoriteType, id: string) {
     case "crew":
       return Boolean(await prisma.crewMember.findUnique({ where: { id }, select: { id: true } }));
     case "gear":
-      return Boolean(await prisma.gearItem.findUnique({ where: { id }, select: { id: true } }));
+      return Boolean(await prisma.gearItem.findFirst({ where: { id, status: { in: PUBLIC_GEAR_STATUSES } }, select: { id: true } }));
   }
 }
 
@@ -28,7 +29,7 @@ async function buildCards(rows: { itemType: string; itemId: string; createdAt: D
     prisma.reel.findMany({ where: { id: { in: ids("reel") } } }),
     prisma.galleryItem.findMany({ where: { id: { in: ids("gallery") } } }),
     prisma.crewMember.findMany({ where: { id: { in: ids("crew") } } }),
-    prisma.gearItem.findMany({ where: { id: { in: ids("gear") } } })
+    prisma.gearItem.findMany({ where: { id: { in: ids("gear") }, status: { in: PUBLIC_GEAR_STATUSES } } })
   ]);
 
   const lookup = new Map<string, Omit<FavoriteCard, "savedAt">>();

@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { GearBay } from "@/components/gear/GearBay";
+import { RentDesk } from "@/components/gear/RentDesk";
+import { PUBLIC_GEAR_SELECT, publicGearWhere } from "@/lib/gear";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Rent Gear",
-  description: "Rent Sony cameras, gimbals, and production cars from ZH Films Lahore.",
+  title: "Rent Camera Gear",
+  description: "Rent the equipment ZH Films uses on weddings across Gilgit-Baltistan and Lahore. Request your dates.",
   path: "/rent"
 });
 
-export default async function RentPage() {
+export default async function Page() {
   const items = await prisma.gearItem.findMany({
-    where: { OR: [{ listingType: "rent" }, { listingType: "both" }], available: true },
-    orderBy: { sortOrder: "asc" }
+    where: publicGearWhere("rent"),
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: PUBLIC_GEAR_SELECT
   });
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Rent", path: "/rent" }])} />
-      <GearBay items={items} mode="rent" />
+      <RentDesk items={items} />
     </>
   );
 }

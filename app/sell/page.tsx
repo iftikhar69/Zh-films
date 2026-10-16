@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
-import { GearBay } from "@/components/gear/GearBay";
+import { SellShowroom } from "@/components/gear/SellShowroom";
+import { PUBLIC_GEAR_SELECT, publicGearWhere } from "@/lib/gear";
 import { buildPageMetadata, breadcrumbJsonLd, JsonLd } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Sell / Buy Gear",
-  description: "Buy cameras and lenses from the ZH Films vault — contact Zulfikar Hussain.",
+  title: "Buy Camera Gear",
+  description: "Cameras, lenses and lighting from the ZH Films kit, sold directly with honest condition notes.",
   path: "/sell"
 });
 
-export default async function SellPage() {
+export default async function Page() {
   const items = await prisma.gearItem.findMany({
-    where: { OR: [{ listingType: "sell" }, { listingType: "both" }], available: true },
-    orderBy: { sortOrder: "asc" }
+    where: publicGearWhere("sell"),
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: PUBLIC_GEAR_SELECT
   });
   return (
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Home", path: "/" }, { name: "Sell", path: "/sell" }])} />
-      <GearBay items={items} mode="sell" />
+      <SellShowroom items={items} />
     </>
   );
 }
