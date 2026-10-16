@@ -16,8 +16,9 @@ const toLines = (s: string) =>
     .map((l) => l.trim())
     .filter(Boolean);
 
-type Editable = Omit<Catalog["packages"][number], "inclusions" | "exclusions" | "price"> & {
+type Editable = Omit<Catalog["packages"][number], "inclusions" | "exclusions" | "price" | "salePrice"> & {
   price: string;
+  salePrice: string;
   inclusions: string;
   exclusions: string;
 };
@@ -26,9 +27,10 @@ type EditableAddon = Omit<Addon, "price"> & { price: string };
 export function PackagesForm({ initial, images }: { initial: Catalog; images: string[] }) {
   const router = useRouter();
   const [packages, setPackages] = useState<Editable[]>(
-    initial.packages.map((p) => ({ ...p, price: String(p.price), inclusions: p.inclusions.join("\n"), exclusions: p.exclusions.join("\n") }))
+    initial.packages.map((p) => ({ ...p, price: String(p.price), salePrice: p.salePrice == null ? "" : String(p.salePrice), inclusions: p.inclusions.join("\n"), exclusions: p.exclusions.join("\n") }))
   );
   const [addons, setAddons] = useState<EditableAddon[]>(initial.addons.map((a) => ({ ...a, price: String(a.price) })));
+  const [custom, setCustom] = useState({ ...initial.custom, basePrice: String(initial.custom.basePrice) });
   const [busy, setBusy] = useState(false);
 
   const setPkg = (i: number, patch: Partial<Editable>) => setPackages((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -39,11 +41,20 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
       packages: packages.map((p) => ({
         ...p,
         price: Number(p.price),
+        salePrice: p.salePrice === "" ? null : Number(p.salePrice),
+        saleEndsOn: p.salePrice === "" ? "" : p.saleEndsOn,
+        saleLabel: p.salePrice === "" ? "" : p.saleLabel,
         inclusions: toLines(p.inclusions),
         exclusions: toLines(p.exclusions)
       })),
-      addons: addons.map((a) => ({ ...a, price: Number(a.price) }))
+      addons: addons.map((a) => ({ ...a, price: Number(a.price) })),
+      custom: { ...custom, basePrice: Number(custom.basePrice || 0) }
     };
+    const badSale = body.packages.find((p) => p.salePrice != null && p.salePrice >= p.price);
+    if (badSale) {
+      toast.error(`The discounted price for ${badSale.name} must be lower than its regular price`);
+      return;
+    }
     setBusy(true);
     const res = await fetch("/api/admin/catalog", {
       method: "PUT",
@@ -121,14 +132,69 @@ export function PackagesForm({ initial, images }: { initial: Catalog; images: st
               <L label="Not included — one per line">
                 <Textarea value={p.exclusions} rows={6} onChange={(e) => setPkg(i, { exclusions: e.target.value })} placeholder="e.g. Travel outside Lahore" />
               </L>
+              <div className="grid gap-3 rounded-xl border border-zh-gold/20 bg-zh-gold/[0.03] p-3 sm:col-span-2 sm:grid-cols-3">
+                <p className="text-xs text-zinc-400 sm:col-span-3">
+                  Discount offer (optional). Leave the price empty for no discount. Customers see the regular price crossed out.
+                </p>
+                <L label="Discounted price (PKR)">
+                  <Input inputMode="numeric" value={p.salePrice} placeholder="No discount" onChange={(e) => setPkg(i, { salePrice: e.target.value.replace(/\D/g, "") })} />
+                </L>
+                <L label="Offer label">
+                  <Input value={p.saleLabel} maxLength={60} placeholder="e.g. Winter offer" disabled={!p.salePrice} onChange={(e) => setPkg(i, { saleLabel: e.target.value })} />
+                </L>
+                <L label="Last day (optional)">
+                  <Input type="date" value={p.saleEndsOn} disabled={!p.salePrice} onChange={(e) => setPkg(i, { saleEndsOn: e.target.value })} />
+                </L>
+              </div>
             </div>
           </fieldset>
         ))}
       </section>
 
+      <section className="space-y-4">
+        <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Custom package</h2>
+        <fieldset className="grid gap-4 rounded-2xl border border-white/10 bg-zinc-950/50 p-5 lg:grid-cols-[160px_1fr]">
+          <div className="space-y-2">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-xl border border-white/10">
+              <Image src={custom.image} alt="" fill sizes="160px" className="object-cover" />
+            </div>
+            <select
+              aria-label="Custom package image"
+              value={custom.image}
+              onChange={(e) => setCustom((c) => ({ ...c, image: e.target.value }))}
+              className="h-9 w-full rounded-lg border border-white/10 bg-black/60 px-2 text-xs text-zinc-200"
+            >
+              {[...new Set([custom.image, ...images])].map((src) => (
+                <option key={src} value={src}>
+                  {src.split("/").pop()}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm text-zinc-200 sm:col-span-2">
+              <input type="checkbox" checked={custom.enabled} onChange={(e) => setCustom((c) => ({ ...c, enabled: e.target.checked }))} className="accent-[#c8a96a]" />
+              Let customers build a custom package from the add-ons below
+            </label>
+            <L label="Name">
+              <Input value={custom.name} maxLength={80} onChange={(e) => setCustom((c) => ({ ...c, name: e.target.value }))} />
+            </L>
+            <L label="Starting price (PKR, 0 = quote on request)">
+              <Input inputMode="numeric" value={custom.basePrice} onChange={(e) => setCustom((c) => ({ ...c, basePrice: e.target.value.replace(/\D/g, "") }))} />
+            </L>
+            <L label="Tagline" wide>
+              <Input value={custom.tagline} maxLength={160} onChange={(e) => setCustom((c) => ({ ...c, tagline: e.target.value }))} />
+            </L>
+            <L label="Description" wide>
+              <Textarea value={custom.description} maxLength={1000} onChange={(e) => setCustom((c) => ({ ...c, description: e.target.value }))} />
+            </L>
+          </div>
+        </fieldset>
+      </section>
+
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Add-ons</h2>
+          <h2 className="text-[11px] uppercase tracking-[0.3em] text-zinc-400">Add-ons (also the building blocks of the custom package)</h2>
           <Button
             type="button"
             variant="outline"

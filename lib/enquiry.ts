@@ -55,7 +55,7 @@ export type EnquiryMessage = {
 export function enquiryWhatsAppText(m: EnquiryMessage) {
   const out: string[] = ["Assalam o Alaikum ZH Films!"];
   if (m.packageName) {
-    out.push(`I'm interested in the ${m.packageName}${m.packagePrice != null ? ` (advertised ${formatPkr(m.packagePrice)})` : ""}.`);
+    out.push(`I'm interested in the ${m.packageName}${m.packagePrice ? ` (advertised ${formatPkr(m.packagePrice)})` : ""}.`);
   } else if (m.eventType) {
     out.push(`I'd like a quote for a ${m.eventType}.`);
   } else {

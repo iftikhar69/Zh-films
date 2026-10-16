@@ -18,7 +18,7 @@ import { randomBytes } from "node:crypto";
 import { logBookingEvent } from "@/lib/booking-events";
 import { notifyNewRequest } from "@/lib/notify";
 import { SlotUnavailableError, assertSlotFree, busyRangesForDate, withScheduleLock } from "@/lib/booking-availability";
-import { CatalogError, PACKAGE_IDS, estimate, getCatalog, type Estimate } from "@/lib/catalog";
+import { CatalogError, SELECTABLE_PACKAGE_IDS, estimate, getCatalog, publicCatalog, type Estimate } from "@/lib/catalog";
 import {
   EVENT_TYPES,
   EVENT_TYPE_KEYS,
@@ -45,7 +45,7 @@ const schema = z.object({
   email: z.string().trim().email("Enter a valid email").or(z.literal("")).optional().default(""),
   phone: z.string().trim().min(6, "Add your WhatsApp number").max(30),
   idempotencyKey: z.string().uuid().optional(),
-  packageId: z.enum(PACKAGE_IDS).optional(),
+  packageId: z.enum(SELECTABLE_PACKAGE_IDS).optional(),
   addonIds: z.array(z.string().max(40)).max(30).optional().default([]),
   eventType: z.enum(EVENT_TYPE_KEYS).optional(),
   functions: z
@@ -207,7 +207,7 @@ export async function POST(req: Request) {
     }
     // Prices always come from the stored catalog; nothing the browser sends is trusted as a price.
     const catalog = await getCatalog();
-    priced = estimate(catalog, body.kind === "wedding_package" ? body.packageId : null, body.addonIds);
+    priced = estimate(publicCatalog(catalog), body.kind === "wedding_package" ? body.packageId : null, body.addonIds);
   } catch (e) {
     if (e instanceof InputError || e instanceof CatalogError) {
       return NextResponse.json({ ok: false, field: e.field, error: e.message }, { status: 400 });
@@ -298,7 +298,9 @@ export async function POST(req: Request) {
         }
       });
       const what = priced.package
-        ? `${priced.package.name} (${formatPkr(priced.package.price)}), estimate ${formatPkr(priced.total)}`
+        ? `${priced.package.name} (${formatPkr(priced.package.price)}${
+            priced.package.listPrice != null ? ` discounted from ${formatPkr(priced.package.listPrice)}` : ""
+          }), estimate ${formatPkr(priced.total)}`
         : body.eventType
           ? EVENT_TYPES[body.eventType].label
           : "Request";

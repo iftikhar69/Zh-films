@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { estimate, type PublicCatalog } from "@/lib/catalog-shared";
+import { NeedHelp } from "@/components/packages/NeedHelp";
 import { MAX_FUNCTIONS, WEDDING_FUNCTIONS, WEDDING_FUNCTION_TYPES, formatPkr, type WeddingFunctionType } from "@/lib/enquiry";
 import {
   AvailabilityNote,
@@ -280,7 +281,10 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
                       <span className="block text-sm font-medium text-white">{p.name}</span>
                       <span className="block text-xs text-zinc-400">{p.tagline}</span>
                     </span>
-                    <span className="text-right text-sm font-semibold text-zh-gold">{formatPkr(p.price)}</span>
+                    <span className="text-right text-sm font-semibold text-zh-gold">
+                      {p.custom ? (p.price > 0 ? `From ${formatPkr(p.price)}` : "You choose") : formatPkr(p.price)}
+                      {p.listPrice != null ? <s className="block text-[11px] font-normal text-zinc-500">{formatPkr(p.listPrice)}</s> : null}
+                    </span>
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
@@ -480,7 +484,10 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
           {pkg ? (
             <div className="flex justify-between gap-3 text-sm">
               <span className="text-zinc-300">{pkg.name}</span>
-              <span className="text-white">{formatPkr(pkg.price)}</span>
+              <span className="text-right text-white">
+                {pkg.custom && pkg.price === 0 ? "—" : formatPkr(pkg.price)}
+                {pkg.listPrice != null ? <s className="block text-[11px] text-zinc-500">{formatPkr(pkg.listPrice)}</s> : null}
+              </span>
             </div>
           ) : (
             <p className="text-sm text-zinc-500">No package selected</p>
@@ -494,9 +501,14 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
           <div className="flex justify-between gap-3 border-t border-white/10 pt-3">
             <span className="text-sm text-zinc-300">Estimated total</span>
             <span className="text-lg font-semibold text-zh-gold" data-testid="estimated-total">
-              {formatPkr(priced?.total ?? 0)}
+              {pkg?.custom && !priced?.total ? "Quote on request" : formatPkr(priced?.total ?? 0)}
             </span>
           </div>
+          {pkg?.listPrice != null ? (
+            <p className="text-xs text-emerald-300">
+              {pkg.saleLabel || "Discount"}: you save {formatPkr(pkg.listPrice - pkg.price)}
+            </p>
+          ) : null}
           {d.functions.some((f) => f.eventDate) ? (
             <ul className="space-y-1 border-t border-white/10 pt-3 text-xs text-zinc-400">
               {d.functions.map((f, i) => (
@@ -511,6 +523,7 @@ export function WeddingBookingForm({ catalog, initialPackage }: { catalog: Publi
             approval from ZH Films and are confirmed in your final quote.
           </p>
         </aside>
+        <NeedHelp context={pkg ? pkg.name : "wedding booking"} className="lg:col-start-2" />
       </div>
     </div>
   );
@@ -520,7 +533,12 @@ function Inclusions({ pkg }: { pkg: PublicCatalog["packages"][number] }) {
   return (
     <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm">
       {pkg.description ? <p className="mb-3 text-zinc-300">{pkg.description}</p> : null}
-      {pkg.inclusions.length ? (
+      {pkg.custom ? (
+        <p className="text-zinc-400">
+          Choose the add-ons you want below and describe your functions in the next steps. ZH Films reviews your selection
+          and sends a final quote.
+        </p>
+      ) : pkg.inclusions.length ? (
         <ul className="space-y-1.5">
           {pkg.inclusions.map((x) => (
             <li key={x} className="flex gap-2 text-zinc-200">

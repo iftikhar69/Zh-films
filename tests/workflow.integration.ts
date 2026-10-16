@@ -398,3 +398,35 @@ test("only admins edit prices; new prices apply to new requests only; quotes rec
   assert.equal(q.status, "pending", "a quote doesn't confirm the booking");
   assert.ok(q.events.some((e) => /discount of PKR 15,000/.test(e.message) && /Agreed on WhatsApp/.test(e.message)));
 });
+
+test("discount and custom package totals are computed on the server", async () => {
+  const { DEFAULT_CATALOG } = await import("../lib/catalog");
+  session = { userId: "user_owner", admin: true };
+  const offer = {
+    ...DEFAULT_CATALOG,
+    packages: DEFAULT_CATALOG.packages.map((p) => (p.id === "premium" ? { ...p, salePrice: 135000, saleLabel: "Winter offer", saleEndsOn: "" } : p)),
+    addons: [{ id: "drone", name: "Drone coverage", price: 20000, description: "", enabled: true }]
+  };
+  assert.equal((await putCatalog({ ...offer, packages: offer.packages.map((p) => (p.id === "premium" ? { ...p, salePrice: 999999 } : p)) })).status, 400, "discount must be below the regular price");
+  assert.equal((await putCatalog(offer)).status, 200);
+
+  session = { userId: null, admin: false };
+  const fn = (h: string) => [{ type: "walima", eventDate: DATE3, startTime: h, endTime: `${String(Number(h.slice(0, 2)) + 1).padStart(2, "0")}:00` }];
+  const sale = await post(wedding({ packageId: "premium", names: "Offer Couple", addonIds: ["drone"], estimatedTotal: 1, functions: fn("06:00") }));
+  assert.equal(sale.status, 200, JSON.stringify(sale.json));
+  assert.equal(sale.json.estimate.total, 155000, "browser totals are ignored; discount applied by the server");
+  const saved = await prisma.booking.findUniqueOrThrow({ where: { id: sale.json.booking.id }, include: { events: true } });
+  assert.equal(saved.packagePrice, 135000);
+  assert.ok(saved.events.some((e) => /discounted from PKR 150,000/.test(e.message)));
+
+  const custom = await post(wedding({ packageId: "custom", names: "Custom Couple", addonIds: ["drone"], functions: fn("09:00") }));
+  assert.equal(custom.status, 200, JSON.stringify(custom.json));
+  assert.equal(custom.json.estimate.total, 20000);
+  assert.equal(custom.json.estimate.packageName, "Custom Package");
+
+  session = { userId: "user_owner", admin: true };
+  assert.equal((await putCatalog({ ...offer, custom: { ...offer.custom, enabled: false } })).status, 200);
+  session = { userId: null, admin: false };
+  assert.equal((await post(wedding({ packageId: "custom", names: "Too Late", functions: fn("12:00") }))).status, 400, "disabled custom package refused");
+});
+

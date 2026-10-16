@@ -1,10 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_CATALOG, estimate, CatalogError } from "../lib/catalog-shared";
+import { DEFAULT_CATALOG, estimate, CatalogError, publicCatalog, catalogSchema, type Catalog } from "../lib/catalog-shared";
 import { enquiryWhatsAppText } from "../lib/enquiry";
 import { normalizeWhatsApp, waLink } from "../lib/film-family";
 
-const catalog = {
+const pub = (c: Catalog, today = "2026-10-16") => publicCatalog(c, today);
+const catalog: Catalog = {
   ...DEFAULT_CATALOG,
   addons: [
     { id: "drone", name: "Drone coverage", price: 25_000, description: "", enabled: true },
@@ -25,12 +26,50 @@ test("the three packages keep their advertised names and prices", () => {
 });
 
 test("estimate adds enabled add-ons once and rejects disabled ones", () => {
-  assert.equal(estimate(catalog, "premium", []).total, 150_000);
-  assert.equal(estimate(catalog, "premium", ["drone", "drone"]).total, 175_000);
-  assert.throws(() => estimate(catalog, "premium", ["album"]), CatalogError);
-  assert.throws(() => estimate(catalog, "gold", []), CatalogError);
+  assert.equal(estimate(pub(catalog), "premium", []).total, 150_000);
+  assert.equal(estimate(pub(catalog), "premium", ["drone", "drone"]).total, 175_000);
+  assert.throws(() => estimate(pub(catalog), "premium", ["album"]), CatalogError);
+  assert.throws(() => estimate(pub(catalog), "gold", []), CatalogError);
   const off = { ...catalog, packages: catalog.packages.map((p) => (p.id === "standard" ? { ...p, enabled: false } : p)) };
-  assert.throws(() => estimate(off, "standard", []), CatalogError);
+  assert.throws(() => estimate(pub(off), "standard", []), CatalogError);
+});
+
+test("a discount applies only while the owner's offer runs, and only below the regular price", () => {
+  const sale: Catalog = {
+    ...catalog,
+    packages: catalog.packages.map((p) => (p.id === "premium" ? { ...p, salePrice: 130_000, saleLabel: "Winter offer", saleEndsOn: "2026-12-31" } : p))
+  };
+  const during = estimate(pub(sale, "2026-12-31"), "premium", ["drone"]);
+  assert.equal(during.total, 155_000);
+  assert.equal(during.package?.listPrice, 150_000);
+  const afterEnd = estimate(pub(sale, "2027-01-01"), "premium", []);
+  assert.equal(afterEnd.total, 150_000);
+  assert.equal(afterEnd.package?.listPrice, null);
+  const bad = { ...sale, packages: sale.packages.map((p) => (p.id === "premium" ? { ...p, salePrice: 160_000 } : p)) };
+  assert.equal(catalogSchema.safeParse(bad).success, false, "discount above the regular price is rejected");
+});
+
+test("the custom package totals only the chosen add-ons plus the owner's base price", () => {
+  assert.equal(estimate(pub(catalog), "custom", []).total, 0);
+  assert.equal(estimate(pub(catalog), "custom", ["drone"]).total, 25_000);
+  const off = { ...catalog, custom: { ...catalog.custom, enabled: false } };
+  assert.throws(() => estimate(pub(off), "custom", []), CatalogError);
+});
+
+test("catalogs saved before discounts and the custom package still load", () => {
+  const legacy = {
+    packages: DEFAULT_CATALOG.packages.map((p) => {
+      const old: Record<string, unknown> = { ...p };
+      delete old.salePrice;
+      delete old.saleLabel;
+      delete old.saleEndsOn;
+      return old;
+    }),
+    addons: []
+  };
+  const parsed = catalogSchema.parse(legacy);
+  assert.equal(parsed.custom.enabled, true);
+  assert.ok(parsed.packages.every((p) => p.salePrice === null));
 });
 
 test("local Pakistani numbers are converted for wa.me", () => {
