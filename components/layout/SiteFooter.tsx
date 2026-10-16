@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowUpRight, Facebook, Instagram, Mail, MessageCircle, Phone } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import { FILM_FAMILY, waLink } from "@/lib/film-family";
-import { Marquee } from "@/components/motion/Marquee";
 import { Magnetic } from "@/components/motion/Magnetic";
 import { scrollToTarget } from "@/components/motion/SmoothScroll";
 
@@ -13,28 +12,28 @@ const columns = [
   {
     title: "Watch",
     links: [
-      { href: "/reels", label: "Reel Vault" },
+      { href: "/reels", label: "Films" },
       { href: "/gallery", label: "Gallery" },
-      { href: "/instagram", label: "Dailies" },
-      { href: "/favorites", label: "Your favorites" }
+      { href: "/instagram", label: "Instagram" },
+      { href: "/favorites", label: "Saved films" }
     ]
   },
   {
-    title: "Work with us",
+    title: "Book & hire",
     links: [
       { href: "/book/wedding", label: "Wedding packages" },
       { href: "/book/event", label: "Book an event" },
-      { href: "/hire", label: "Hire the family" },
+      { href: "/hire", label: "Hire our crew" },
       { href: "/rent", label: "Rent gear" },
-      { href: "/sell", label: "Vault sale" }
+      { href: "/sell", label: "Buy used gear" }
     ]
   },
   {
     title: "Studio",
     links: [
       { href: "/about", label: "About Zulfikar" },
-      { href: "/journal", label: "Film notes" },
-      { href: "/account", label: "Call sheet" }
+      { href: "/journal", label: "Journal" },
+      { href: "/account", label: "Your account" }
     ]
   }
 ];
@@ -53,27 +52,14 @@ export function SiteFooter() {
   return (
     <footer className="relative overflow-hidden border-t border-white/5 bg-black">
       <Image
-        src="/media/instagram/C0HH-nXIP6k-1.jpg"
+        src="/media/instagram/CxhbfV-ISy5-1.jpg"
         alt=""
         fill
         sizes="100vw"
         loading="lazy"
-        className="pointer-events-none object-cover object-[50%_30%] opacity-[0.18] grayscale"
+        className="pointer-events-none object-cover object-[50%_25%] opacity-50"
       />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black via-black/80 to-black" />
-
-      <div className="border-b border-white/5 py-6">
-        <Marquee seconds={36}>
-          {["Weddings", "AKU Events", "Pre-Events", "Brand Films", "Drone Cinema", "Mehndi", "Walima", "Commercials"].map(
-            (w) => (
-              <span key={w} className="flex items-center gap-8 pr-8 font-display text-4xl font-bold uppercase text-white/10 sm:text-6xl">
-                {w}
-                <span className="h-3 w-3 rounded-full bg-zh-gold/40" />
-              </span>
-            )
-          )}
-        </Marquee>
-      </div>
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black" />
 
       <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6">
         <div className="grid gap-12 lg:grid-cols-[1.3fr_1fr]">

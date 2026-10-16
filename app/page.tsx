@@ -5,7 +5,6 @@ import { HomeHero } from "@/components/home/HomeHero";
 import { CustomerWelcome } from "@/components/home/CustomerWelcome";
 import { ServicesBand } from "@/components/home/ServicesBand";
 import { FeaturedReels } from "@/components/home/FeaturedReels";
-import { ProcessTimeline } from "@/components/home/ProcessTimeline";
 import { ReserveYourDate } from "@/components/home/ReserveYourDate";
 import { WeddingPackages } from "@/components/home/WeddingPackages";
 import { confirmedDatesAhead } from "@/lib/booking-availability";
@@ -44,12 +43,11 @@ export default async function HomePage() {
     <>
       <JsonLd data={breadcrumbJsonLd([{ name: "Home", path: "/" }])} />
       <HomeHero reviewAverage={stats.average} reviewCount={stats.count} reelCount={reelCount} crewCount={crewCount} />
+      <ReserveYourDate confirmedDates={confirmedDates} />
       <CustomerWelcome />
       <ServicesBand />
       <FeaturedReels reels={featured} loves={loves} />
-      <ProcessTimeline />
       <WeddingPackages />
-      <ReserveYourDate confirmedDates={confirmedDates} />
       <MoodTeaserEngine />
       <MostLoved reels={loved} />
       <HouseDirectory />
