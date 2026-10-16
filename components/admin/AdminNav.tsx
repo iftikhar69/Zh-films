@@ -20,8 +20,8 @@ const LINKS = [
 export function AdminNav() {
   const path = usePathname();
   return (
-    <nav aria-label="Admin" className="-mx-4 overflow-x-auto px-4 lg:mx-0 lg:overflow-visible lg:px-0">
-      <ul className="flex gap-2 lg:flex-col">
+    <nav aria-label="Admin" className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:overflow-visible lg:px-0">
+      <ul className="flex gap-2 lg:flex-col lg:gap-0.5">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active = href === "/admin" ? path === "/admin" : path.startsWith(href);
           return (
@@ -30,10 +30,10 @@ export function AdminNav() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2 text-xs transition-colors lg:rounded-xl",
+                  "flex items-center gap-2.5 whitespace-nowrap rounded-full border px-4 py-2 text-xs transition-colors lg:rounded-lg lg:border-transparent lg:px-3 lg:py-2.5 lg:text-[13px]",
                   active
-                    ? "border-zh-gold/60 bg-zh-gold/15 text-zh-gold"
-                    : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-white"
+                    ? "border-zh-gold/60 bg-zh-gold/15 text-zh-gold lg:border-transparent lg:bg-zh-gold/10"
+                    : "border-white/10 text-zinc-400 hover:border-white/20 hover:text-white lg:hover:bg-white/[0.04]"
                 )}
               >
                 <Icon className="h-4 w-4" aria-hidden />
