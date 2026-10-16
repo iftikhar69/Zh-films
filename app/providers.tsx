@@ -12,23 +12,26 @@ import { Preloader } from "@/components/motion/Preloader";
 import { SearchLauncher } from "@/components/search/SearchLauncher";
 import { FavoritesHydrator } from "@/components/favorites/FavoritesHydrator";
 import { Toaster } from "@/components/ui/sonner";
+import { MotionConfig } from "framer-motion";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProviderSafe>
-      <Preloader />
-      <SmoothScroll />
-      <ScrollProgress />
-      <CustomCursor />
-      <FavoritesHydrator />
-      <CinematicShell>
-        <FilmNav />
-        <main className="min-h-[100svh]">{children}</main>
-        <SiteFooter />
-        <LazyDirectorsCutClub />
-      </CinematicShell>
-      <SearchLauncher />
-      <Toaster />
+      <MotionConfig reducedMotion="user">
+        <Preloader />
+        <SmoothScroll />
+        <ScrollProgress />
+        <CustomCursor />
+        <FavoritesHydrator />
+        <CinematicShell>
+          <FilmNav />
+          <main className="min-h-[100svh]">{children}</main>
+          <SiteFooter />
+          <LazyDirectorsCutClub />
+        </CinematicShell>
+        <SearchLauncher />
+        <Toaster />
+      </MotionConfig>
     </ClerkProviderSafe>
   );
 }
