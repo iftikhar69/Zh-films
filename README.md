@@ -76,7 +76,7 @@ cursor.
 - `npm run build` / `npm start` — production
 - `npm run lint` — ESLint (Next core-web-vitals + TypeScript)
 - `npm run db:push` / `npm run db:seed` — schema + demo data
-- `npm test` — scheduling rules; `npm run test:workflow` — end-to-end booking/payment/email workflow on a throwaway database
+- `npm test` — scheduling rules; `npm run test:workflow` — end-to-end booking/payment/email workflow on a throwaway database; `npm run test:calendar` — busy dates, ranges, overlaps, conflicts and email failure reporting
 - `npm run admin:grant -- <email>` / `-- <email> --revoke` / `-- --list` — owner admin bootstrap (see below)
 - `npm run reminders` — run the reminder job once (same as the cron route)
 
@@ -155,7 +155,7 @@ Emails go through [Resend](https://resend.com) when `RESEND_API_KEY` and `EMAIL_
 - Owner: new request, payment submitted, request still pending, payment awaiting verification, hold expired.
 - Customer: request received (clearly *not* a reservation), hold placed, confirmed / declined / cancelled, advance requested and reminder, payment verified or rejected, hold expired.
 
-Reminders run from `GET /api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` (`vercel.json` schedules it every 30 minutes), or on a VPS with crontab: `*/30 * * * * cd /app && npm run reminders`.
+Reminders run from `GET /api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` (on Netlify, `netlify/functions/reminders.mts` calls it hourly once `CRON_SECRET` is set; `vercel.json` schedules it every 30 minutes on Vercel), or on a VPS with crontab: `*/30 * * * * cd /app && npm run reminders`.
 
 ## Payments (manual Easypaisa / bank transfer)
 
